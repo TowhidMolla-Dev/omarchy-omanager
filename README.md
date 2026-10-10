@@ -154,6 +154,12 @@ python3 tests/test_manifest.py  # manifest / Schema.js / QML drift, plain-text r
 
 ## Changelog
 
+
+### 1.3.1
+
+- The search boxes and setting fields no longer use Qt's built-in text input, so nothing reads the clipboard on its own. Middle-click paste, selecting text with the mouse, cut and copy, and input-method composition are not available in them.
+
+
 ### 1.3.0
 
 - Changes apply on the spot and are saved to `settings.json`. Omanager no longer calls `omarchy bar set`, so Omarchy's own settings screen does not show Omanager's values.
@@ -162,10 +168,10 @@ python3 tests/test_manifest.py  # manifest / Schema.js / QML drift, plain-text r
 - **Start on, Sort by, the recency filter, Verified only and Hide installed** update the Browse filters as soon as you change them. A filter you have set yourself is left alone.
 - **Window width and height** are dimmed and locked while the manager is popped out, with a note explaining why.
 - The main search box is limited to 50 characters, and text that doesn't fit is cut at the box edge.
-- Bar button text is limited to 10 characters.
-- Catalog address is limited to 100 characters.
-- My accent color is limited to 7 characters.
-- Ctrl+V, Shift+Insert and middle-click in the search boxes and setting fields read at most 1 KB of the clipboard, with a 2-second limit, and run no shell. Without this, a very large clipboard could be read in full before the length limit applied.
+- Bar button text is limited to 10 characters, same fitting fix.
+- Catalog address is limited to 100 characters, same fitting fix.
+- My accent color is limited to 7 characters, same fitting fix.
+- Ctrl+V and Shift+Insert in the search boxes and setting fields read at most 1 KB of the clipboard, with a 2-second limit, and run no shell. Without this, a very large clipboard could be read in full before the length limit applied.
 - Settings edits are meant to run without freezing the shell. The likely cause of the earlier freeze (a process started for every edit) has been removed.
 
 ### 1.2.0

@@ -230,20 +230,20 @@ Item {
                 anchors.fill: parent
                 anchors.leftMargin: ui.px(10)
                 anchors.rightMargin: ui.px(10)
-                verticalAlignment: TextInput.AlignVCenter
                 color: ui.fg
-                selectionColor: ui.accent
-                selectedTextColor: ui.accentText
                 font.family: ui.fontName
                 font.pixelSize: ui.fs(12)
                 text: root.str(root.current)
                 maximumLength: root.maxLength
-                selectByMouse: true
                 onEditingFinished: {
                     if (root.kind === "color" && !root.validHex(text)) { text = root.str(root.current); return }
                     if (text !== root.str(root.current)) root.commit(text)
                 }
                 Keys.onEscapePressed: { text = root.str(root.current); focus = false }
+                Connections {
+                    target: root
+                    function onCurrentChanged() { field.text = root.str(root.current) }
+                }
             }
         }
 

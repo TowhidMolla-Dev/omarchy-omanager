@@ -78,6 +78,15 @@ class ManifestTests(unittest.TestCase):
             code = read(name)
             self.assertNotRegex(code, r'"sh"|"bash"|"-c"|\beval\(|new Function')
 
+    def test_no_native_editable_text_input(self):
+        """Qt's TextInput / TextEdit / TextField carry their own clipboard handling, which
+        reads foreign clipboard text with no byte or time limit. Text fields must use
+        PasteInput, which is built from a plain Text and never touches the clipboard."""
+        for name in sorted(f for f in os.listdir(ROOT) if f.endswith(".qml")):
+            for i, line in enumerate(read(name).split("\n")):
+                if re.match(r"^\s*(?:[\w.]+:\s*)?(TextInput|TextEdit|TextField)\s*\{", line):
+                    self.fail("%s:%d uses a native editable text item; use PasteInput" % (name, i + 1))
+
     def test_every_text_item_is_plain_text(self):
         """MPRIS metadata is attacker-controlled: Text.AutoText would render
         <img src=...> and fetch remote URLs. Every Text item must pin PlainText."""

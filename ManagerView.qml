@@ -122,15 +122,11 @@ Item {
                     anchors.fill: parent
                     anchors.leftMargin: ui.px(30)
                     anchors.rightMargin: ui.px(30)
-                    verticalAlignment: TextInput.AlignVCenter
                     enabled: ui.tabName !== "settings"
                     color: ui.fg
-                    selectionColor: ui.accent
-                    selectedTextColor: ui.accentText
                     font.family: ui.fontName
                     font.pixelSize: ui.fs(12)
                     maximumLength: 50
-                    selectByMouse: true
                     text: ui.query
                     onTextEdited: ui.query = text
                     Keys.onEscapePressed: function(e) {

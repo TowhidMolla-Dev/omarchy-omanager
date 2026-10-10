@@ -142,14 +142,10 @@ Item {
                     anchors.fill: parent
                     anchors.leftMargin: ui.px(10)
                     anchors.rightMargin: ui.px(10)
-                    verticalAlignment: TextInput.AlignVCenter
                     color: ui.fg
-                    selectionColor: ui.accent
-                    selectedTextColor: ui.accentText
                     font.family: ui.fontName
                     font.pixelSize: ui.fs(12)
                     maximumLength: 80
-                    selectByMouse: true
                     onTextChanged: root.filter = text
                     Keys.onEscapePressed: { text = ""; focus = false }
                     Txt {
