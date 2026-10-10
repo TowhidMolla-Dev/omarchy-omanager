@@ -155,7 +155,9 @@ BarWidget {
     // One UiState feeds whichever surface is showing, so filters, selection and
     // scroll context survive popping out and docking back.
     property bool popped: false
-    property bool modeChosen: false
+    // Set only by the header's pop-out / dock buttons. Until then "Open as" decides
+    // how the bar button opens, every time, so a change in settings takes effect at once.
+    property bool userPicked: false
 
     // The bar's own colours. Fall back to the shell palette if the bar does not expose them.
     readonly property color barFg: (root.bar && root.bar.barForeground !== undefined)
@@ -189,19 +191,37 @@ BarWidget {
     // The first open follows the "Open as" setting; after that the header's
     // pop-out / dock buttons decide.
     function chooseMode() {
-        if (modeChosen) return
-        modeChosen = true
-        popped = opt_openAs === "window"
+        if (userPicked) return
+        var want = opt_openAs === "window"
+        if (want === popped) return
+        if (windowShown) hideWindow()
+        if (panelOpened) closePanel()
+        popped = want
     }
 
+    // The window exists exactly while it is wanted. Showing it again after it was
+    // closed (by the header, or by the window manager) always creates a fresh one,
+    // so a dead window handle can never leave the bar button doing nothing.
+    property bool windowRequested: false
+
     function showWindow() {
-        windowLoader.active = true
+        windowRequested = true
         if (windowLoader.item) windowLoader.item.visible = true
     }
 
     function hideWindow() {
-        if (windowLoader.item) windowLoader.item.visible = false
-        windowLoader.active = false
+        windowRequested = false
+    }
+
+    // The window manager closed the window while we still wanted it: forget it, so
+    // the next click on the bar button builds a new one.
+    Connections {
+        target: windowLoader.item
+        ignoreUnknownSignals: true
+        function onVisibleChanged() {
+            if (windowLoader.item && !windowLoader.item.visible && root.windowRequested)
+                root.windowRequested = false
+        }
     }
 
     // If the bar panel cannot be shown (Panel.qml failed to load, or the shell
@@ -213,7 +233,6 @@ BarWidget {
         console.warn("Omanager: " + reason + "; opening as a window instead")
         wantPanel = false
         panelCheck.stop()
-        modeChosen = true
         popped = true
         showWindow()
     }
@@ -261,14 +280,14 @@ BarWidget {
     function closeForPopoutSwitch() { if (panelLoader.item) panelLoader.item.closeForPopoutSwitch() }
 
     function popOut() {
-        modeChosen = true
+        userPicked = true
         popped = true
         closePanel()
         showWindow()
     }
 
     function dock() {
-        modeChosen = true
+        userPicked = true
         hideWindow()
         popped = false
         Qt.callLater(root.openPanel)
@@ -318,11 +337,11 @@ BarWidget {
     // A real, resizable, movable window. Only exists while popped out.
     Loader {
         id: windowLoader
-        active: false
+        active: root.windowRequested
         source: Qt.resolvedUrl("PopoutWindow.qml")
         onLoaded: {
             item.ui = ux
-            item.visible = true
+            item.visible = root.windowRequested
         }
         onStatusChanged: if (status === Loader.Error)
             console.warn("Omanager: PopoutWindow.qml failed to load; run `qs log` for the QML error")

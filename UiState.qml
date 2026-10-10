@@ -33,6 +33,19 @@ Item {
         confirmInstall: true, confirmRemove: true, allowUnverified: true, showSecurityNote: true
     })
 
+    // Narrow scalars for the delegates (cards, stage, filters). A delegate that reads
+    // `ui.cfgSafe.X` depends on the whole settings object, which is rebuilt on every
+    // change, so every card re-evaluated when any setting changed. These only change
+    // when their own value changes, so an unrelated setting no longer touches them.
+    readonly property real densityF: cfgSafe.density === "compact" ? 0.85 : (cfgSafe.density === "spacious" ? 1.2 : 1.0)
+    readonly property real fontPct: cfgSafe.fontScale
+    readonly property real tintPct: cfgSafe.surfaceTint
+    readonly property bool frameOn: cfgSafe.frame === true
+    readonly property bool showPreviews: cfgSafe.showPreviews === true
+    readonly property int newBadgeDays: Number(cfgSafe.newBadgeDays)
+    readonly property string colorModeKey: cfgSafe.colorMode
+    readonly property string filtersPanelKey: cfgSafe.filtersPanel
+
     // Colours handed in by BarWidget: the bar's own foreground and background.
     property color barFg: "white"
     property color barBg: "#121217"
@@ -98,14 +111,13 @@ Item {
     }
     function onText(c) { return contrast(onFill(c)) }
     function accentTint(a) { return Qt.rgba(accent.r, accent.g, accent.b, a) }
-    function fs(n) { return Math.round(n * cfgSafe.fontScale / 100) }
+    function fs(n) { return Math.round(n * fontPct / 100) }
     function px(n) {
-        var f = cfgSafe.density === "compact" ? 0.85 : (cfgSafe.density === "spacious" ? 1.2 : 1.0)
-        return Math.round(n * f)
+        return Math.round(n * densityF)
     }
     // Category color: hue per category in "By category" mode, otherwise the accent.
     function tone(category) {
-        if (cfgSafe.colorMode === "category")
+        if (colorModeKey === "category")
             return Qt.hsla(Model.hueOf(category), 0.55, lightSurface ? 0.38 : 0.68, 1)
         return accent
     }
@@ -153,6 +165,29 @@ Item {
         scope = c.recencyScope
         days = c.recencyDays === "any" ? 0 : Number(c.recencyDays)
         sortKey = c.defaultSort
+        lastDefaults = defaultsNow()
+    }
+
+    // The Browse defaults from Settings. The filters start on them, and a filter that
+    // still shows the old default follows a change to it. A filter the user has set
+    // to something else stays where they put it.
+    property var lastDefaults: ({})
+    function defaultsNow() {
+        var c = cfgSafe
+        return { source: c.defaultSource, sort: c.defaultSort, scope: c.recencyScope,
+                 days: c.recencyDays === "any" ? 0 : Number(c.recencyDays),
+                 verified: c.verifiedOnly === true, hide: c.hideInstalled === true }
+    }
+    function syncDefaults() {
+        var old = lastDefaults
+        var now = defaultsNow()
+        if (source === old.source) source = now.source
+        if (sortKey === old.sort) sortKey = now.sort
+        if (scope === old.scope) scope = now.scope
+        if (days === old.days) days = now.days
+        if (verifiedOnly === old.verified) verifiedOnly = now.verified
+        if (hideInstalled === old.hide) hideInstalled = now.hide
+        lastDefaults = now
     }
 
     readonly property bool filtersActive: query !== "" || category !== "" || tags.length > 0
@@ -160,7 +195,11 @@ Item {
         || sortKey !== cfgSafe.defaultSort || (days !== 0 && scope !== cfgSafe.recencyScope)
         || (tabName === "browse" && source !== cfgSafe.defaultSource)
 
-    onCfgChanged: if (cfg && !seeded) { seeded = true; resetFilters() }
+    onCfgChanged: {
+        if (!cfg) return
+        if (!seeded) { seeded = true; resetFilters() }
+        else syncDefaults()
+    }
     onTabNameChanged: {
         status = "any"; category = ""; tags = []; selected = null
         recomputeTimer.restart()

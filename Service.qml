@@ -298,6 +298,56 @@ Item {
         }
     }
 
+    // ---- clipboard paste (capped, no shell) -------------------------------------------
+    // Pasting into a text field never reads the clipboard on the UI thread. wl-paste
+    // runs directly (no shell) and its output is read in chunks. Reading stops as soon
+    // as 1024 bytes are in, or after 2 seconds, and the process is stopped. The text is
+    // then sent back through `pasted`, addressed to the field that asked.
+    property string pasteKey: ""
+    property string pasteBuf: ""
+    readonly property int pasteMax: 1024
+    signal pasted(string key, string text)
+
+    function requestPaste(key) {
+        if (pasteKey !== "" || pasteProc.running) return   // one paste at a time
+        pasteKey = key
+        pasteBuf = ""
+        pasteProc.running = true
+        pasteKill.restart()
+    }
+
+    function finishPaste() {
+        var k = pasteKey
+        if (k === "") return                              // already delivered
+        pasteKey = ""
+        pasteKill.stop()
+        var text = pasteBuf.slice(0, pasteMax)
+        pasteBuf = ""
+        if (pasteProc.running) pasteProc.running = false  // stop reading the clipboard
+        root.pasted(k, text)
+    }
+
+    Timer {
+        id: pasteKill
+        interval: 2000
+        onTriggered: root.finishPaste()
+    }
+
+    Process {
+        id: pasteProc
+        running: false
+        command: ["wl-paste", "--no-newline"]
+        stdout: SplitParser {
+            splitMarker: ""
+            onRead: function(data) {
+                if (root.pasteBuf.length >= root.pasteMax) return
+                root.pasteBuf += data
+                if (root.pasteBuf.length >= root.pasteMax) root.finishPaste()
+            }
+        }
+        onExited: root.finishPaste()
+    }
+
     // ---- clipboard / links ----------------------------------------------------------
     function copyText(text) {
         copier.command = ["wl-copy", String(text)]

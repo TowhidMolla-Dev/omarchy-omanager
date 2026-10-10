@@ -51,13 +51,13 @@ Item {
     Rectangle {   // accent wash
         anchors.fill: parent
         radius: ui.radius
-        color: ui.accentTint(ui.cfgSafe.surfaceTint / 100)
+        color: ui.accentTint(ui.tintPct / 100)
     }
     Rectangle {   // thin outline
         anchors.fill: parent
         radius: ui.radius
         color: "transparent"
-        border.width: ui.cfgSafe.frame ? 1 : 0
+        border.width: ui.frameOn ? 1 : 0
         border.color: ui.accent
         opacity: 0.8
     }
@@ -112,10 +112,13 @@ Item {
                 border.width: 1
                 border.color: searchField.activeFocus ? ui.accent : ui.tint(0.14)
                 opacity: ui.tabName === "settings" ? 0.35 : 1
+                clip: true               // text longer than the box is cut at its edge, never drawn past it
 
                 Txt { ui: view.ui; anchors.left: parent.left; anchors.leftMargin: ui.px(10); anchors.verticalCenter: parent.verticalCenter; text: "\u2315"; opacity: 0.5; font.pixelSize: ui.fs(14) }
-                TextInput {
+                PasteInput {
                     id: searchField
+                    key: "search"
+                    service: ui.service
                     anchors.fill: parent
                     anchors.leftMargin: ui.px(30)
                     anchors.rightMargin: ui.px(30)
@@ -126,7 +129,7 @@ Item {
                     selectedTextColor: ui.accentText
                     font.family: ui.fontName
                     font.pixelSize: ui.fs(12)
-                    maximumLength: 120
+                    maximumLength: 50
                     selectByMouse: true
                     text: ui.query
                     onTextEdited: ui.query = text
@@ -272,12 +275,12 @@ Item {
 
                 FilterSidebar {
                     ui: view.ui
-                    visible: ui.cfgSafe.filtersPanel === "left"
+                    visible: ui.filtersPanelKey === "left"
                     Layout.preferredWidth: ui.px(214)
                     Layout.fillHeight: true
                 }
                 Rectangle {
-                    visible: ui.cfgSafe.filtersPanel === "left"
+                    visible: ui.filtersPanelKey === "left"
                     Layout.fillHeight: true
                     implicitWidth: 1
                     color: ui.tint(0.10)

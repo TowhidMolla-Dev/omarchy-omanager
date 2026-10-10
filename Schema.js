@@ -47,7 +47,8 @@ var groups = [
               "custom"
             ]
           }
-        ]
+        ],
+        "maxLength": 7
       },
       {
         "key": "cardStyle",
@@ -384,7 +385,8 @@ var groups = [
         "kind": "string",
         "fallback": "https://plugins.omarchy.org/catalog.json",
         "hint": "Where the plugin list comes from. Must start with https://.",
-        "presets": []
+        "presets": [],
+        "maxLength": 100
       },
       {
         "key": "refreshHours",
@@ -493,7 +495,8 @@ var groups = [
               "both"
             ]
           }
-        ]
+        ],
+        "maxLength": 10
       },
       {
         "key": "showBadge",

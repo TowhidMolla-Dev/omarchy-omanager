@@ -17,6 +17,12 @@ Item {
         return ui.cfg && ui.cfg[key] !== undefined ? ui.cfg[key] : Schema.defaults[key]
     }
 
+    // Window size is set by the window manager while the manager is popped out,
+    // so these two settings have no effect there. Shown, but locked.
+    function offHere(item) {
+        return ui.popped === true && (item.key === "windowWidth" || item.key === "windowHeight")
+    }
+
     function dimmed(item) {
         if (!item.when) return false
         for (var i = 0; i < item.when.length; i++) {
@@ -129,8 +135,10 @@ Item {
                 color: ui.tint(0.06)
                 border.width: 1
                 border.color: searchBox.activeFocus ? ui.accent : ui.tint(0.12)
-                TextInput {
+                PasteInput {
                     id: searchBox
+                    key: "settings-search"
+                    service: ui.service
                     anchors.fill: parent
                     anchors.leftMargin: ui.px(10)
                     anchors.rightMargin: ui.px(10)
@@ -194,11 +202,14 @@ Item {
                                 Layout.bottomMargin: ui.px(12)
                                 ui: root.ui
                                 label: modelData.label
-                                hint: modelData.hint || ""
+                                hint: root.offHere(modelData)
+                                    ? "Not used in a pop-out window: your window manager sizes it. Dock it to use this."
+                                    : (modelData.hint || "")
                                 kind: modelData.kind
                                 options: modelData.options || []
                                 labels: modelData.labels || ({})
                                 presets: modelData.presets || []
+                                maxLength: modelData.maxLength !== undefined ? modelData.maxLength : 2048
                                 min: modelData.min !== undefined ? modelData.min : 0
                                 max: modelData.max !== undefined ? modelData.max : 100
                                 step: modelData.step !== undefined ? modelData.step : 1
@@ -206,8 +217,10 @@ Item {
                                 decimals: modelData.decimals !== undefined ? modelData.decimals : 0
                                 defaultValue: modelData.fallback
                                 dimmed: root.dimmed(modelData)
+                                locked: root.offHere(modelData)
                                 value: root.val(modelData.key)
                                 onEdited: function(v) {
+                                    if (root.offHere(modelData)) return
                                     if (modelData.key === "viewMode") ui.setView(v)
                                     else if (ui.store) ui.store.set(modelData.key, v)
                                 }

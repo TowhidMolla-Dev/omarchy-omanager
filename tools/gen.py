@@ -21,9 +21,9 @@ def I(key, label, default, lo, hi, step, hint, divisor=1, decimals=0, when=None)
 def B(key, label, default, hint, when=None):
     return dict(key=key, label=label, kind="bool", fallback=default, hint=hint, when=when)
 
-def S(key, label, default, hint, presets=None, kind="string", when=None):
+def S(key, label, default, hint, presets=None, kind="string", when=None, maxLength=None):
     return dict(key=key, label=label, kind=kind, fallback=default, hint=hint,
-                presets=presets or [], when=when)
+                presets=presets or [], when=when, maxLength=maxLength)
 
 SORTS = ["newest", "listed", "updated", "fresh", "hearts", "stars", "views", "rated", "az"]
 SORT_LABELS = {"newest": "Newly uploaded", "listed": "As listed",
@@ -39,7 +39,7 @@ SPEC = [
     S("accentColor", "My accent color", "#ff6a1f",
       "Pick one, or type a hex like #ff6a1f.",
       presets=["#ff6a1f", "#7aa2f7", "#bb9af7", "#7dcfff", "#9ece6a", "#e0af68", "#f7768e", "#c0caf5"],
-      kind="color", when=[{"key": "colorMode", "is": ["custom"]}]),
+      kind="color", when=[{"key": "colorMode", "is": ["custom"]}], maxLength=7),
     E("cardStyle", "Card style", "soft", ["soft", "outline", "flat"],
       {"soft": "Soft", "outline": "Outline", "flat": "Flat"},
       "Soft fills cards lightly, outline draws a border only, flat has neither."),
@@ -86,7 +86,7 @@ SPEC = [
   ]),
   ("Catalog", [
     S("catalogUrl", "Catalog address", "https://plugins.omarchy.org/catalog.json",
-      "Where the plugin list comes from. Must start with https://."),
+      "Where the plugin list comes from. Must start with https://.", maxLength=100),
     I("refreshHours", "Refresh every", 1, 1, 168, 1, "Hours between automatic checks. An unchanged catalog costs a tiny request, not a full download."),
     B("refreshOnOpen", "Refresh when opened", True, "Check for a newer catalog every time the window opens. Cheap when nothing changed."),
     B("checkUpdates", "Look for updates", True, "Compare installed versions with the catalog and show an Updates tab."),
@@ -102,7 +102,7 @@ SPEC = [
     E("barDisplay", "Bar button shows", "both", ["icon", "text", "both"],
       {"icon": "Icon", "text": "Text", "both": "Both"}, "What the button on the bar looks like."),
     S("barText", "Bar button text", "Plugins", "Used when text is shown.",
-      presets=["Plugins", "Store", "Add-ons"], when=[{"key": "barDisplay", "is": ["text", "both"]}]),
+      presets=["Plugins", "Store", "Add-ons"], when=[{"key": "barDisplay", "is": ["text", "both"]}], maxLength=10),
     B("showBadge", "Update badge", True, "Show how many plugin updates are waiting next to the button."),
     E("middleClick", "Middle click", "refresh", ["refresh", "none"], {"refresh": "Refresh catalog", "none": "Nothing"},
       "What clicking the bar button with the middle mouse button does."),
@@ -123,7 +123,7 @@ def manifest_item(it):
 
 def write_manifest():
     m = {
-      "schemaVersion": 1, "id": PLUGIN_ID, "name": "Omanager", "version": "1.2.0",
+      "schemaVersion": 1, "id": PLUGIN_ID, "name": "Omanager", "version": "1.3.0",
       "author": "qempexe", "license": "MIT",
       "description": "Plugin manager for the Omarchy bar: browse, filter, install, update and remove plugins from a window.",
       "kinds": ["service", "bar-widget"], "keepLoaded": True,

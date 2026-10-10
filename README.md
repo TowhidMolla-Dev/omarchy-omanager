@@ -53,7 +53,7 @@ A plugin manager for the Omarchy bar. Click the bar button and a window opens; c
 
   Plus card style, spacing, roundness, text size, and window tint.
 
-- **35 settings**, grouped into:
+- **36 settings**, grouped into:
   - Appearance
   - Window
   - Browse
@@ -87,7 +87,7 @@ omarchy plugin validate ~/.config/omarchy/plugins/io.github.qempexe.omanager
 omarchy plugin enable io.github.qempexe.omanager --section right
 ```
 
-Requires `curl` (catalog download) and `wl-copy` (only for "Copy install command").
+Requires `curl` (catalog download). `wl-clipboard` is needed on Wayland: `wl-copy` for "Copy install command" and `wl-paste` for pasting into text fields.
 
 ### Floating the Pop-out Window (Hyprland)
 
@@ -108,7 +108,13 @@ Without rules it still works; it just tiles like any other window.
 
 Everything is in the window's **Settings** tab (or by right-clicking the bar button).
 
-Each change is applied instantly, saved locally, and mirrored to `omarchy bar set`.
+Each change is applied instantly and saved locally, in `settings.json` in your state folder (`~/.local/state/omarchy-omanager/`). Omanager does not run `omarchy bar set`, so Omarchy's own settings screen shows the defaults, not your values. Editing `settings.json` by hand takes effect after a shell restart.
+
+A few settings behave differently in some situations:
+
+- **Open as** is read each time you click the bar button, until you use Pop out or Dock in the current session.
+- **Window width and height** are locked (dimmed) while the manager is popped out, because the window manager sizes that window. They apply again after you dock it.
+- **Start on, Sort by, the recency filter, Verified only and Hide installed** update the Browse filters when you change them. A filter you have set yourself is left alone.
 
 The list lives in `tools/gen.py`. Edit it, run:
 
@@ -147,6 +153,20 @@ python3 tests/test_manifest.py  # manifest / Schema.js / QML drift, plain-text r
 ```
 
 ## Changelog
+
+### 1.3.0
+
+- Changes apply on the spot and are saved to `settings.json`. Omanager no longer calls `omarchy bar set`, so Omarchy's own settings screen does not show Omanager's values.
+- A chosen value is shown on its control straight away, and the file is only written by Omanager (read once at startup, never watched), so a value should not snap back to an old one.
+- **Open as** is read on every bar-button click until you use Pop out or Dock in the session. Before, it was read once per session, so the bar button kept opening the panel until a restart.
+- **Start on, Sort by, the recency filter, Verified only and Hide installed** update the Browse filters as soon as you change them. A filter you have set yourself is left alone.
+- **Window width and height** are dimmed and locked while the manager is popped out, with a note explaining why.
+- The main search box is limited to 50 characters, and text that doesn't fit is cut at the box edge.
+- Bar button text is limited to 10 characters.
+- Catalog address is limited to 100 characters.
+- My accent color is limited to 7 characters.
+- Ctrl+V, Shift+Insert and middle-click in the search boxes and setting fields read at most 1 KB of the clipboard, with a 2-second limit, and run no shell. Without this, a very large clipboard could be read in full before the length limit applied.
+- Settings edits are meant to run without freezing the shell. The likely cause of the earlier freeze (a process started for every edit) has been removed.
 
 ### 1.2.0
 
