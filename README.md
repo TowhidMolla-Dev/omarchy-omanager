@@ -108,7 +108,7 @@ Without rules it still works; it just tiles like any other window.
 
 Everything is in the window's **Settings** tab (or by right-clicking the bar button).
 
-Each change is applied instantly and saved locally, in `settings.json` in your state folder (`~/.local/state/omarchy-omanager/`). Omanager does not run `omarchy bar set`, so Omarchy's own settings screen shows the defaults, not your values. Editing `settings.json` by hand takes effect after a shell restart.
+Each change is applied instantly and saved locally, in `settings.json` in your state folder (`~/.local/state/omarchy-omanager/`). Omanager does not run `omarchy bar set`, so Omarchy's own settings screen shows the defaults, not your values. Editing `settings.json` by hand takes effect after a shell restart. Settings persist across shell restarts, logouts and reboots: the file is read once at startup and merged under anything you change in the meantime.
 
 A few settings behave differently in some situations:
 
@@ -158,6 +158,11 @@ python3 tests/test_no_native_text.py  # no TextInput anywhere, paste read stays 
 ```
 
 ## Changelog
+
+### 1.4.1
+
+- **Settings now survive a shell restart, logout or reboot.** Changes were always written to `settings.json`, but the file was never read back correctly: `FileView.text` is a method in Quickshell, and `SettingsStore.qml` passed the method itself instead of calling it. The saved JSON failed to parse, every start looked like "no saved settings", and the first change you made overwrote the file with defaults. The store now reads the file with `text()` (through a small `readText()` helper, the same pattern `Service.qml` uses), merges it under anything changed in memory, and notifies listeners once it has loaded.
+- If you lost settings to the old overwrite, set them once more; they persist from here on.
 
 ### 1.4.0
 

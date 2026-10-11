@@ -71,6 +71,13 @@ Item {
         file.setText(JSON.stringify(root.values, null, 2) + "\n")
     }
 
+    // FileView.text is a method in Quickshell, not a property. Passing `text`
+    // straight through hands over the function object, JSON.parse then fails and
+    // every start looks like "no saved settings". Always call it.
+    function readText(fv) {
+        try { return String(typeof fv.text === "function" ? fv.text() : fv.text) } catch (e) { return "" }
+    }
+
     // Startup read: the file's values, with anything changed in memory on top.
     function absorb(text) {
         if (loaded) return
@@ -86,7 +93,7 @@ Item {
         for (var j in values) merged[j] = values[j]
         values = merged
         loaded = true
-        if (writeTimer.running) return
+        changed()
     }
 
     Component.onCompleted: mkdir.running = true
@@ -103,7 +110,7 @@ Item {
     FileView {
         id: file
         path: root.path
-        onLoaded: root.absorb(text)
+        onLoaded: root.absorb(root.readText(file))
         onLoadFailed: { if (!root.loaded) root.loaded = true }
     }
 }
