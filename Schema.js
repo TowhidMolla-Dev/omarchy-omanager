@@ -22,7 +22,8 @@ var groups = [
           "mono": "Monochrome",
           "category": "By category"
         },
-        "hint": "Follow theme matches your bar. My color uses the accent below. Monochrome removes every hue. By category tints each category differently."
+        "hint": "Follow theme matches your bar. My color uses the accent below. Monochrome removes every hue. By category tints each category differently.",
+        "control": "tiles"
       },
       {
         "key": "accentColor",
@@ -65,7 +66,8 @@ var groups = [
           "outline": "Outline",
           "flat": "Flat"
         },
-        "hint": "Soft fills cards lightly, outline draws a border only, flat has neither."
+        "hint": "Soft fills cards lightly, outline draws a border only, flat has neither.",
+        "control": "tiles"
       },
       {
         "key": "density",
@@ -82,7 +84,8 @@ var groups = [
           "comfortable": "Comfortable",
           "spacious": "Spacious"
         },
-        "hint": "How much air there is between things."
+        "hint": "How much air there is between things.",
+        "control": "tiles"
       },
       {
         "key": "cornerRadius",
@@ -100,8 +103,8 @@ var groups = [
         "key": "frame",
         "label": "Window outline",
         "kind": "bool",
-        "fallback": true,
-        "hint": "A thin accent-colored outline around the whole manager."
+        "fallback": false,
+        "hint": "Draw the window edge in the accent color instead of a plain neutral line."
       },
       {
         "key": "fontScale",
@@ -176,7 +179,8 @@ var groups = [
           "panel": "Bar panel",
           "window": "Own window"
         },
-        "hint": "Where the bar button opens the manager. You can always pop it out or dock it back from the header."
+        "hint": "Where the bar button opens the manager. You can always pop it out or dock it back from the header.",
+        "control": "tiles"
       },
       {
         "key": "viewMode",
@@ -195,7 +199,8 @@ var groups = [
           "list": "List",
           "compact": "Compact"
         },
-        "hint": "List + stage keeps a big preview of the selected plugin beside the list. Cards show screenshots, list fits the most, compact is a dense table-like view."
+        "hint": "List + stage keeps a big preview of the selected plugin beside the list. Cards show screenshots, list fits the most, compact is a dense table-like view.",
+        "control": "tiles"
       },
       {
         "key": "columns",
@@ -290,7 +295,8 @@ var groups = [
           "rated": "Best install rate",
           "az": "A to Z"
         },
-        "hint": "Newly uploaded = first listed. As listed = the order the catalog feed returns them in (matches the website's default view). Recently upgraded = latest update. New or upgraded = whichever is most recent."
+        "hint": "Newly uploaded = first listed. As listed = the order the catalog feed returns them in (matches the website's default view). Recently upgraded = latest update. New or upgraded = whichever is most recent.",
+        "control": "chips"
       },
       {
         "key": "recencyScope",
@@ -530,7 +536,7 @@ var defaults = {
   "cardStyle": "soft",
   "density": "comfortable",
   "cornerRadius": 4,
-  "frame": true,
+  "frame": false,
   "fontScale": 100,
   "surfaceTint": 6,
   "showPreviews": true,

@@ -18,7 +18,7 @@ Rectangle {
     color: inline ? "transparent" : ui.surface
     border.width: inline ? 0 : 1
     border.color: ui.tint(0.16)
-    radius: ui.radius
+    radius: ui.r(2)
 
     MouseArea { anchors.fill: parent; enabled: !root.inline; acceptedButtons: Qt.AllButtons; onWheel: function(w) { w.accepted = true } }
 
@@ -81,7 +81,7 @@ Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: Math.min(ui.px(root.inline ? 330 : 200), width * 9 / 16)
                 visible: ui.cfgSafe.showPreviews
-                radius: Math.max(2, ui.radius)
+                radius: ui.r(2)
                 color: root.p ? Qt.rgba(ui.tone(root.p.category).r, ui.tone(root.p.category).g, ui.tone(root.p.category).b, 0.12) : ui.tint(0.05)
                 border.width: 1
                 border.color: ui.tint(0.10)
@@ -211,7 +211,7 @@ Rectangle {
                 Layout.fillWidth: true
                 visible: ui.cfgSafe.showSecurityNote && root.p && !root.p.builtin
                 implicitHeight: note.implicitHeight + ui.px(20)
-                radius: Math.max(2, ui.radius * 0.6)
+                radius: ui.r(1.5)
                 color: ui.tint(0.05)
                 border.width: 1
                 border.color: ui.tint(0.10)

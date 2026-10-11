@@ -87,7 +87,7 @@ omarchy plugin validate ~/.config/omarchy/plugins/io.github.qempexe.omanager
 omarchy plugin enable io.github.qempexe.omanager --section right
 ```
 
-Requires `curl` (catalog download). `wl-clipboard` is needed on Wayland: `wl-copy` for "Copy install command" and `wl-paste` for pasting into text fields.
+Requires `curl` (catalog download). `wl-clipboard` is needed on Wayland: `wl-copy` for "Copy install command" and `wl-paste` for pasting into text fields (read at most 1 KB, for at most 2 seconds, and only when you press Ctrl+V or Shift+Insert).
 
 ### Floating the Pop-out Window (Hyprland)
 
@@ -116,7 +116,7 @@ A few settings behave differently in some situations:
 - **Window width and height** are locked (dimmed) while the manager is popped out, because the window manager sizes that window. They apply again after you dock it.
 - **Start on, Sort by, the recency filter, Verified only and Hide installed** update the Browse filters when you change them. A filter you have set yourself is left alone.
 
-The list lives in `tools/gen.py`. Edit it, run:
+The list lives in `tools/gen.py`. Each choice can say how it is drawn with `control="tiles"`, `"seg"` or `"chips"`. Edit it, run:
 
 ```bash
 python3 tools/gen.py
@@ -143,6 +143,10 @@ UiState.qml    all window state (filters, selection, theme helpers, results)
 ManagerView    the whole UI; shown by Panel.qml (bar panel) or PopoutWindow.qml
 ResultsView    the scrolling grid / list / compact table + empty states
 PluginCard     one plugin in card, list, or compact form
+SettingsView   the Settings tab body: group tabs and the settings
+SettingRow     one setting: tiles, segmented bar, chips, slider, switch, field
+TileArt        the little pictures inside the settings tiles
+PasteInput     the text field (a plain Text, never a TextInput)
 ```
 
 ## Tests
@@ -150,14 +154,29 @@ PluginCard     one plugin in card, list, or compact form
 ```bash
 node tests/test_model.js        # catalog parsing, filters, sorts, command safety
 python3 tests/test_manifest.py  # manifest / Schema.js / QML drift, plain-text rule
+python3 tests/test_no_native_text.py  # no TextInput anywhere, paste read stays capped
 ```
 
 ## Changelog
 
+### 1.4.0
+
+- **New look for the whole panel**:
+  - a header card with the title, plugin counts, one search box, and the actions (layout, Refresh, Pop out / Dock, close);
+  - equal-width underlined tabs: Browse, Installed, Updates, Saved, Settings;
+  - the filters, results and stage sit in one rounded content card;
+  - a footer with the `Esc` hint, the catalog status and the Log button.
+- **Plain edges.** The window edge is a neutral line; the header logo and the search box no longer have accent borders. *Window outline* (now off by default) switches the edge to the accent color.
+- **Follows the shell's accent.** With *Follow theme* or *By category*, selected tiles, tabs, chips and sliders use the shell theme's accent color (the bar's foreground when the shell exposes none). *My color* and *Monochrome* behave as before.
+- **Roundness reaches everything.** Buttons, chips, cards, the content card and the window all scale with the Roundness setting (0 stays square).
+- **New Settings tab.** One underlined tab per group; the header's search box searches the settings, *Reset all* sits in the header. The footer says how many settings differ from the defaults.
+- **Tiles, segmented bars, chips and sliders.** Colors, Card style, Spacing, Open as and Layout are tiles with a little picture of each choice. Short choices (Card columns, Filters sidebar, Start on, the recency filter, Bar button shows, Middle click) are one segmented bar. Sort by stays chips because it has nine. Sliders have `− value +` on the right, a reset arrow, and the range under the track.
+- **`control` in `tools/gen.py`.** `E()` takes an optional `control="tiles" | "seg" | "chips"`; without it a choice is a segmented bar up to 5 options and chips beyond that. `Schema.js` carries it.
 
 ### 1.3.1
 
 - The search boxes and setting fields no longer use Qt's built-in text input, so nothing reads the clipboard on its own. Middle-click paste, selecting text with the mouse, cut and copy, and input-method composition are not available in them.
+- **No native text input, guarded by a test.** No file in the plugin creates a `TextInput`, `TextField`, `TextArea` or `TextEdit`. Those watch the clipboard on their own and read foreign text through Qt's Wayland receiver, which has no total byte limit or deadline, so a clipboard provider that streams forever could stall the shared shell without any paste. Fields are drawn by `PasteInput.qml` from a plain `Text`; the only clipboard read is Ctrl+V / Shift+Insert through `wl-paste`, capped at 1 KB and 2 seconds. `tests/test_no_native_text.py` fails if a native text element, a `QtQuick.Controls` import, a direct clipboard hook, or a loss of that cap ever appears.
 
 
 ### 1.3.0

@@ -10,9 +10,14 @@ import json, os, re
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 PLUGIN_ID = "io.github.qempexe.omanager"
 
-def E(key, label, default, options, labels, hint, when=None):
+# control (enum only) picks how the settings window draws a choice:
+#   "tiles"  big tiles with a little picture of each option (few, visual choices)
+#   "seg"    one segmented bar (short choices, up to about 5)
+#   "chips"  wrapping chips (long lists)
+# Left out, it is "seg" for up to 5 options and "chips" for more.
+def E(key, label, default, options, labels, hint, when=None, control=None):
     return dict(key=key, label=label, kind="enum", fallback=default, options=options,
-                labels=labels, hint=hint, when=when)
+                labels=labels, hint=hint, when=when, control=control)
 
 def I(key, label, default, lo, hi, step, hint, divisor=1, decimals=0, when=None):
     return dict(key=key, label=label, kind="int", fallback=default, min=lo, max=hi,
@@ -35,19 +40,19 @@ SPEC = [
   ("Appearance", [
     E("colorMode", "Colors", "theme", ["theme", "custom", "mono", "category"],
       {"theme": "Follow theme", "custom": "My color", "mono": "Monochrome", "category": "By category"},
-      "Follow theme matches your bar. My color uses the accent below. Monochrome removes every hue. By category tints each category differently."),
+      "Follow theme matches your bar. My color uses the accent below. Monochrome removes every hue. By category tints each category differently.", control="tiles"),
     S("accentColor", "My accent color", "#ff6a1f",
       "Pick one, or type a hex like #ff6a1f.",
       presets=["#ff6a1f", "#7aa2f7", "#bb9af7", "#7dcfff", "#9ece6a", "#e0af68", "#f7768e", "#c0caf5"],
       kind="color", when=[{"key": "colorMode", "is": ["custom"]}], maxLength=7),
     E("cardStyle", "Card style", "soft", ["soft", "outline", "flat"],
       {"soft": "Soft", "outline": "Outline", "flat": "Flat"},
-      "Soft fills cards lightly, outline draws a border only, flat has neither."),
+      "Soft fills cards lightly, outline draws a border only, flat has neither.", control="tiles"),
     E("density", "Spacing", "comfortable", ["compact", "comfortable", "spacious"],
       {"compact": "Compact", "comfortable": "Comfortable", "spacious": "Spacious"},
-      "How much air there is between things."),
+      "How much air there is between things.", control="tiles"),
     I("cornerRadius", "Roundness", 4, 0, 20, 2, "0 is square, 20 is very round."),
-    B("frame", "Window outline", True, "A thin accent-colored outline around the whole manager."),
+    B("frame", "Window outline", False, "Draw the window edge in the accent color instead of a plain neutral line."),
     I("fontScale", "Text size", 100, 80, 150, 5, "1 is normal, 1.25 is a quarter bigger.", divisor=100, decimals=2),
     I("surfaceTint", "Window tint", 6, 0, 30, 1, "How much of the accent color washes over the window."),
     B("showPreviews", "Show screenshots", True,
@@ -57,10 +62,10 @@ SPEC = [
     I("windowWidth", "Window width", 1040, 640, 1600, 20, "How wide the manager opens."),
     I("windowHeight", "Window height", 700, 420, 1100, 20, "How tall the manager opens."),
     E("openAs", "Open as", "panel", ["panel", "window"], {"panel": "Bar panel", "window": "Own window"},
-      "Where the bar button opens the manager. You can always pop it out or dock it back from the header."),
+      "Where the bar button opens the manager. You can always pop it out or dock it back from the header.", control="tiles"),
     E("viewMode", "Layout", "split", ["split", "grid", "list", "compact"],
       {"split": "List + stage", "grid": "Cards", "list": "List", "compact": "Compact"},
-      "List + stage keeps a big preview of the selected plugin beside the list. Cards show screenshots, list fits the most, compact is a dense table-like view."),
+      "List + stage keeps a big preview of the selected plugin beside the list. Cards show screenshots, list fits the most, compact is a dense table-like view.", control="tiles"),
     E("columns", "Card columns", "auto", ["auto", "1", "2", "3", "4"],
       {"auto": "Auto", "1": "1", "2": "2", "3": "3", "4": "4"},
       "Auto fits as many as the window allows.", when=[{"key": "viewMode", "is": ["grid"]}]),
@@ -72,7 +77,7 @@ SPEC = [
       {"community": "Community", "builtin": "Built-in", "all": "Everything"},
       "Which plugins you see first when the window opens."),
     E("defaultSort", "Sort by", "newest", SORTS, SORT_LABELS,
-      "Newly uploaded = first listed. As listed = the order the catalog feed returns them in (matches the website's default view). Recently upgraded = latest update. New or upgraded = whichever is most recent."),
+      "Newly uploaded = first listed. As listed = the order the catalog feed returns them in (matches the website's default view). Recently upgraded = latest update. New or upgraded = whichever is most recent.", control="chips"),
     E("recencyScope", "Recency filter looks at", "either", ["either", "added", "updated"],
       {"either": "Uploaded or upgraded", "added": "Uploaded", "updated": "Upgraded"},
       "Used together with the time window below.", when=[{"key": "recencyDays", "is": ["7", "30", "90", "365"]}]),
@@ -123,7 +128,7 @@ def manifest_item(it):
 
 def write_manifest():
     m = {
-      "schemaVersion": 1, "id": PLUGIN_ID, "name": "Omanager", "version": "1.3.1",
+      "schemaVersion": 1, "id": PLUGIN_ID, "name": "Omanager", "version": "1.4.0",
       "author": "qempexe", "license": "MIT",
       "description": "Plugin manager for the Omarchy bar: browse, filter, install, update and remove plugins from a window.",
       "kinds": ["service", "bar-widget"], "keepLoaded": True,

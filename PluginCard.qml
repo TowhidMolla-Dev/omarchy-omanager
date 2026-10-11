@@ -38,7 +38,7 @@ Item {
         id: body
         anchors.fill: parent
         anchors.margins: root.compact ? 0 : ui.px(5)
-        radius: root.compact ? 0 : ui.radius
+        radius: root.compact ? 0 : ui.r(2)
         clip: true
         color: root.compact
             ? (area.containsMouse ? ui.tint(0.08) : "transparent")
@@ -223,7 +223,7 @@ Item {
                 Layout.preferredWidth: ui.px(72)
                 Layout.preferredHeight: ui.px(40)
                 Layout.alignment: Qt.AlignVCenter
-                radius: Math.max(2, ui.radius * 0.6)
+                radius: ui.r(1.5)
                 color: Qt.rgba(root.tone.r, root.tone.g, root.tone.b, 0.14)
                 clip: true
                 Image {

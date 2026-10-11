@@ -48,7 +48,7 @@ BarWidget {
     readonly property string opt_cardStyle: pick(over("cardStyle", setting("cardStyle", "soft")), ["soft", "outline", "flat"], "soft")
     readonly property string opt_density: pick(over("density", setting("density", "comfortable")), ["compact", "comfortable", "spacious"], "comfortable")
     readonly property int opt_cornerRadius: whole(over("cornerRadius", setting("cornerRadius", 4)), 0, 20, 4)
-    readonly property bool opt_frame: flag(over("frame", setting("frame", true)), true)
+    readonly property bool opt_frame: flag(over("frame", setting("frame", false)), false)
     readonly property int opt_fontScale: whole(over("fontScale", setting("fontScale", 100)), 80, 150, 100)
     readonly property int opt_surfaceTint: whole(over("surfaceTint", setting("surfaceTint", 6)), 0, 30, 6)
     readonly property bool opt_showPreviews: flag(over("showPreviews", setting("showPreviews", true)), true)
@@ -165,9 +165,26 @@ BarWidget {
     readonly property color barBg: (root.bar && root.bar.barBackground !== undefined)
         ? root.bar.barBackground : (Color.background !== undefined ? Color.background : "#121217")
 
+    // The shell theme's accent, tried under a few likely names. Unknown names are
+    // skipped, and with none found the window falls back to the bar foreground.
+    function themeColor(names) {
+        for (var i = 0; i < names.length; i++) {
+            var raw
+            try { raw = Color[names[i]] } catch (e) { raw = undefined }
+            if (raw === undefined || raw === null) continue
+            try {
+                var c = Qt.color(raw)
+                if (c && c.valid !== false) return c
+            } catch (e2) { }
+        }
+        return null
+    }
+    readonly property var shellAccent: themeColor(["accent", "primary", "highlight", "accentColor", "color4", "blue"])
+
     UiState {
         id: ux
         service: root.service
+        themeAccent: root.shellAccent ? root.shellAccent : "transparent"
         store: settingsStore
         cfg: root.cfg
         opened: root.panelOpened || root.windowShown

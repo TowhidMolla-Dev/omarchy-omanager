@@ -26,7 +26,7 @@ Item {
     // ---- theme & spacing helpers (used by every child as ui.*) ----------------
     readonly property var cfgSafe: cfg ? cfg : ({
         colorMode: "theme", accentColor: "#ff6a1f", cardStyle: "soft", density: "comfortable",
-        cornerRadius: 4, fontScale: 100, surfaceTint: 6, showPreviews: true, frame: true, openAs: "panel",
+        cornerRadius: 4, fontScale: 100, surfaceTint: 6, showPreviews: true, frame: false, openAs: "panel",
         windowWidth: 1040, windowHeight: 700, viewMode: "split", columns: "auto", filtersPanel: "left",
         defaultSource: "community", defaultSort: "newest", recencyScope: "either", recencyDays: "any",
         verifiedOnly: false, hideInstalled: false, showCounts: true, newBadgeDays: 14,
@@ -83,8 +83,14 @@ Item {
     onCfgSafeChanged: if (viewOverride !== "" && cfgSafe.viewMode === viewOverride) viewOverride = ""
 
     readonly property bool mono: cfgSafe.colorMode === "mono"
+    // The shell theme's own accent (BarWidget looks it up; transparent when the
+    // shell does not expose one). "Follow theme" and "By category" use it for
+    // selected tiles, tabs and sliders, so the window matches the rest of the shell.
+    property color themeAccent: "transparent"
+    readonly property bool hasThemeAccent: themeAccent.a > 0
     readonly property color accent: cfgSafe.colorMode === "custom"
-        ? Qt.color(Model.validHex(cfgSafe.accentColor, "#ff6a1f")) : fg
+        ? Qt.color(Model.validHex(cfgSafe.accentColor, "#ff6a1f"))
+        : (!mono && hasThemeAccent ? Qt.rgba(themeAccent.r, themeAccent.g, themeAccent.b, 1) : fg)
     readonly property real accLum: 0.299 * accent.r + 0.587 * accent.g + 0.114 * accent.b
     readonly property color accentText: contrast(accent)
     // Status colours: the pastels used on dark bars vanish on light ones, so pick
@@ -99,6 +105,10 @@ Item {
     property string fontName: ""
     readonly property string cardStyle: cfgSafe.cardStyle
     readonly property real radius: cfgSafe.cornerRadius
+    // Corner radius for a surface, as a multiple of the Roundness setting:
+    // 1.5 buttons and chips, 2 plugin cards, 2.5 cards, 3 the window itself.
+    // Roundness 0 stays square; the cap keeps very round settings sensible.
+    function r(k) { return Math.min(24, Math.round(radius * k)) }
     readonly property bool animations: true
 
     function tint(a) { return Qt.rgba(fg.r, fg.g, fg.b, a) }
@@ -125,6 +135,7 @@ Item {
     // ---- filter state ----------------------------------------------------------
     property string tabName: "browse"        // browse | installed | updates | saved | settings
     property string query: ""
+    property string settingsFilter: ""      // the header search while the Settings tab is open
     property string source: "community"
     property string category: ""
     property var tags: []

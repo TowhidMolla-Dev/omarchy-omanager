@@ -15,7 +15,7 @@ Rectangle {
 
     implicitWidth: row.implicitWidth + ui.px(16)
     implicitHeight: ui.px(24)
-    radius: Math.max(2, ui.radius * 0.6)
+    radius: ui.r(1.5)
     color: on ? Qt.rgba(tone.r, tone.g, tone.b, 0.22) : ui.tint(area.containsMouse ? 0.12 : 0.06)
     border.width: 1
     border.color: on ? tone : ui.tint(0.10)

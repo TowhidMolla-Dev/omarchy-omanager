@@ -3,7 +3,12 @@ import QtQuick.Layouts
 
 // One setting: label + plain-language hint on the left, current value and a
 // reset arrow on the right, and a purpose-built control underneath.
-//   kind  enum    chips (option names are friendly labels)
+//   kind  enum    drawn by `control`:
+//                   tiles  big tiles with a little picture (few, visual choices)
+//                   seg    one segmented bar (short choices)
+//                   chips  wrapping chips (long lists)
+//                 `control` comes from tools/gen.py; left empty it is seg for up
+//                 to 5 options and chips for more.
 //         int     slider with - / + buttons
 //         bool    switch
 //         string  text field (+ optional preset chips)
@@ -12,9 +17,11 @@ Item {
     id: root
 
     property var ui: null
+    property string settingKey: ""
     property string label: ""
     property string hint: ""
     property string kind: "string"
+    property string control: ""
     property var options: []
     property var labels: ({})
     property var presets: []
@@ -52,7 +59,10 @@ Item {
         if (v !== cur) commit(v)
     }
     function validHex(s) { return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(s) }
+    function rad(k) { return ui.r(k) }
 
+    readonly property string mode: kind !== "enum" ? ""
+        : (control !== "" ? control : (options.length <= 5 ? "seg" : "chips"))
     readonly property bool boolValue: current === true || current === "true"
     readonly property bool atDefault: same(current, defaultValue)
     readonly property real span: Math.max(1e-9, max - min)
@@ -69,7 +79,7 @@ Item {
         id: col
         anchors.left: parent.left
         anchors.right: parent.right
-        spacing: ui.px(8)
+        spacing: ui.px(10)
 
         RowLayout {
             Layout.fillWidth: true
@@ -77,12 +87,12 @@ Item {
 
             ColumnLayout {
                 Layout.fillWidth: true
-                spacing: 2
+                spacing: 3
                 Txt {
                     ui: root.ui
                     Layout.fillWidth: true
                     text: root.label
-                    font.pixelSize: ui.fs(12)
+                    font.pixelSize: ui.fs(13)
                     font.weight: Font.DemiBold
                 }
                 Txt {
@@ -96,19 +106,27 @@ Item {
                 }
             }
 
-            Txt {
-                ui: root.ui
+            // - value +  (sliders)
+            RowLayout {
                 visible: root.kind === "int"
-                text: root.show(root.current)
-                font.pixelSize: ui.fs(12)
-                font.weight: Font.DemiBold
+                spacing: ui.px(6)
+                Btn { ui: root.ui; text: "\u2212"; implicitWidth: ui.px(28); implicitHeight: ui.px(28); onClicked: root.nudge(-1) }
+                Txt {
+                    ui: root.ui
+                    Layout.minimumWidth: ui.px(38)
+                    horizontalAlignment: Text.AlignHCenter
+                    text: root.show(root.current)
+                    font.pixelSize: ui.fs(12)
+                    font.weight: Font.DemiBold
+                }
+                Btn { ui: root.ui; text: "+"; implicitWidth: ui.px(28); implicitHeight: ui.px(28); onClicked: root.nudge(1) }
             }
 
             // reset arrow, only once it differs from the default
             Rectangle {
                 visible: !root.atDefault
-                implicitWidth: ui.px(22); implicitHeight: ui.px(22)
-                radius: Math.max(2, ui.radius * 0.5)
+                implicitWidth: ui.px(24); implicitHeight: ui.px(24)
+                radius: root.rad(0.5)
                 color: ui.tint(resetArea.containsMouse ? 0.18 : 0.08)
                 Txt { ui: root.ui; anchors.centerIn: parent; text: "\u21BA"; font.pixelSize: ui.fs(12) }
                 MouseArea {
@@ -123,7 +141,7 @@ Item {
             // switch
             Rectangle {
                 visible: root.kind === "bool"
-                implicitWidth: ui.px(36); implicitHeight: ui.px(20); radius: height / 2
+                implicitWidth: ui.px(38); implicitHeight: ui.px(22); radius: height / 2
                 color: root.boolValue ? ui.accent : ui.tint(0.18)
                 Behavior on color { enabled: ui.animations; ColorAnimation { duration: 100 } }
                 Rectangle {
@@ -141,13 +159,114 @@ Item {
             }
         }
 
-        // enum chips
+        // ---- enum: tiles ------------------------------------------------------------
+        GridLayout {
+            Layout.fillWidth: true
+            visible: root.mode === "tiles"
+            columns: Math.max(1, Math.min(4, root.options.length))
+            columnSpacing: ui.px(10)
+            rowSpacing: ui.px(10)
+
+            Repeater {
+                model: root.mode === "tiles" ? root.options : []
+                delegate: Rectangle {
+                    id: tile
+                    readonly property bool on: root.same(root.current, modelData)
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 1
+                    Layout.preferredHeight: ui.px(84)
+                    radius: root.rad(1.4)
+                    color: on ? ui.accentTint(0.16) : ui.tint(tArea.containsMouse ? 0.09 : 0.04)
+                    border.width: on ? 1.5 : 1
+                    border.color: on ? ui.accent : ui.tint(0.08)
+                    Behavior on color { enabled: ui.animations; ColorAnimation { duration: 100 } }
+
+                    TileArt {
+                        ui: root.ui
+                        key: root.settingKey
+                        opt: String(modelData)
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        y: ui.px(12)
+                    }
+                    Txt {
+                        ui: root.ui
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: ui.px(9)
+                        width: parent.width - ui.px(12)
+                        horizontalAlignment: Text.AlignHCenter
+                        elide: Text.ElideRight
+                        text: root.labelFor(modelData)
+                        font.pixelSize: ui.fs(10)
+                        font.weight: tile.on ? Font.DemiBold : Font.Normal
+                        opacity: tile.on ? 1.0 : 0.75
+                    }
+                    MouseArea {
+                        id: tArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.commit(modelData)
+                    }
+                }
+            }
+        }
+
+        // ---- enum: segmented bar ----------------------------------------------------
+        Rectangle {
+            Layout.fillWidth: true
+            visible: root.mode === "seg"
+            implicitHeight: ui.px(38)
+            radius: root.rad(1.4)
+            color: ui.tint(0.05)
+            border.width: 1
+            border.color: ui.tint(0.08)
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.margins: 3
+                spacing: 2
+
+                Repeater {
+                    model: root.mode === "seg" ? root.options : []
+                    delegate: Rectangle {
+                        readonly property bool on: root.same(root.current, modelData)
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: 1
+                        Layout.fillHeight: true
+                        radius: root.rad(1.1)
+                        color: on ? ui.accent : (sArea.containsMouse ? ui.tint(0.08) : "transparent")
+                        Behavior on color { enabled: ui.animations; ColorAnimation { duration: 90 } }
+                        Txt {
+                            ui: root.ui
+                            anchors.centerIn: parent
+                            width: parent.width - ui.px(8)
+                            horizontalAlignment: Text.AlignHCenter
+                            elide: Text.ElideRight
+                            text: root.labelFor(modelData)
+                            color: parent.on ? ui.accentText : ui.fg
+                            font.pixelSize: ui.fs(11)
+                            font.weight: parent.on ? Font.DemiBold : Font.Normal
+                        }
+                        MouseArea {
+                            id: sArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.commit(modelData)
+                        }
+                    }
+                }
+            }
+        }
+
+        // ---- enum: chips ------------------------------------------------------------
         Flow {
             Layout.fillWidth: true
-            visible: root.kind === "enum"
+            visible: root.mode === "chips"
             spacing: ui.px(6)
             Repeater {
-                model: root.kind === "enum" ? root.options : []
+                model: root.mode === "chips" ? root.options : []
                 delegate: Chip {
                     ui: root.ui
                     label: root.labelFor(modelData)
@@ -157,39 +276,37 @@ Item {
             }
         }
 
-        // slider
-        RowLayout {
+        // ---- slider: full-width track with the range under its ends -------------------
+        ColumnLayout {
             Layout.fillWidth: true
             visible: root.kind === "int"
-            spacing: ui.px(8)
-
-            Btn { ui: root.ui; text: "\u2212"; implicitWidth: ui.px(26); onClicked: root.nudge(-1) }
+            spacing: ui.px(2)
 
             Item {
                 id: track
                 Layout.fillWidth: true
-                implicitHeight: ui.px(22)
+                implicitHeight: ui.px(24)
 
                 Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width; height: 4; radius: 2
-                    color: ui.tint(0.14)
+                    width: parent.width; height: 6; radius: 3
+                    color: ui.tint(0.12)
                 }
                 Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width * root.frac; height: 4; radius: 2
+                    width: parent.width * root.frac; height: 6; radius: 3
                     color: ui.accent
                 }
                 Rectangle {   // notch at the default
                     anchors.verticalCenter: parent.verticalCenter
                     x: parent.width * root.defFrac - 1
-                    width: 2; height: 10
+                    width: 2; height: 12
                     color: ui.tint(0.45)
                 }
                 Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
                     x: Math.max(0, Math.min(parent.width - width, parent.width * root.frac - width / 2))
-                    width: ui.px(14); height: width; radius: width / 2
+                    width: ui.px(16); height: width; radius: width / 2
                     color: ui.accent
                     border.width: 2
                     border.color: ui.surface
@@ -208,19 +325,23 @@ Item {
                     onPositionChanged: function(m) { if (pressed) apply(m.x) }
                 }
             }
-
-            Btn { ui: root.ui; text: "+"; implicitWidth: ui.px(26); onClicked: root.nudge(1) }
+            RowLayout {
+                Layout.fillWidth: true
+                Txt { ui: root.ui; text: root.show(root.min); font.pixelSize: ui.fs(9); opacity: 0.5 }
+                Item { Layout.fillWidth: true }
+                Txt { ui: root.ui; text: root.show(root.max); font.pixelSize: ui.fs(9); opacity: 0.5 }
+            }
         }
 
-        // text field
+        // ---- text field -------------------------------------------------------------
         Rectangle {
             Layout.fillWidth: true
             visible: root.kind === "string" || root.kind === "color"
-            implicitHeight: ui.px(30)
-            radius: Math.max(2, ui.radius * 0.6)
-            color: ui.tint(0.06)
+            implicitHeight: ui.px(34)
+            radius: root.rad(1.4)
+            color: ui.tint(0.05)
             border.width: 1
-            border.color: field.activeFocus ? ui.accent : ui.tint(0.12)
+            border.color: field.activeFocus ? ui.tint(0.28) : ui.tint(0.08)
             clip: true
 
             PasteInput {
@@ -228,8 +349,8 @@ Item {
                 key: "setting:" + root.label
                 service: root.ui ? root.ui.service : null
                 anchors.fill: parent
-                anchors.leftMargin: ui.px(10)
-                anchors.rightMargin: ui.px(10)
+                anchors.leftMargin: ui.px(12)
+                anchors.rightMargin: ui.px(12)
                 color: ui.fg
                 font.family: ui.fontName
                 font.pixelSize: ui.fs(12)
@@ -267,14 +388,15 @@ Item {
         Flow {
             Layout.fillWidth: true
             visible: root.kind === "color"
-            spacing: ui.px(8)
+            spacing: ui.px(10)
             Repeater {
                 model: root.kind === "color" ? root.presets : []
                 delegate: Rectangle {
-                    width: ui.px(24); height: width; radius: width / 2
+                    readonly property bool on: root.same(root.current, modelData)
+                    width: ui.px(28); height: width; radius: width / 2
                     color: modelData
-                    border.width: root.same(root.current, modelData) ? 2 : 1
-                    border.color: root.same(root.current, modelData) ? ui.fg : ui.tint(0.25)
+                    border.width: on ? 2 : 1
+                    border.color: on ? ui.fg : ui.tint(0.25)
                     MouseArea {
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor

@@ -17,7 +17,7 @@ Rectangle {
 
     implicitWidth: label.implicitWidth + ui.px(20)
     implicitHeight: ui.px(28)
-    radius: Math.max(2, ui.radius * 0.6)
+    radius: ui.r(1.5)
     opacity: enabled ? 1.0 : 0.4
     color: primary ? ui.accent
          : (active ? ui.accentTint(0.25) : ui.tint(area.containsMouse ? 0.16 : 0.08))

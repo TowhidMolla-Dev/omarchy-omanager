@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.qempexe.omanager",
   "name": "Omanager",
-  "version": "1.3.1",
+  "version": "1.4.0",
   "author": "qempexe",
   "license": "MIT",
   "description": "Plugin manager for the Omarchy bar: browse, filter, install, update and remove plugins from a window.",
@@ -34,7 +34,7 @@
       "cardStyle": "soft",
       "density": "comfortable",
       "cornerRadius": 4,
-      "frame": true,
+      "frame": false,
       "fontScale": 100,
       "surfaceTint": 6,
       "showPreviews": true,
@@ -125,8 +125,8 @@
         "key": "frame",
         "type": "boolean",
         "label": "Window outline",
-        "defaultValue": true,
-        "description": "A thin accent-colored outline around the whole manager."
+        "defaultValue": false,
+        "description": "Draw the window edge in the accent color instead of a plain neutral line."
       },
       {
         "key": "fontScale",

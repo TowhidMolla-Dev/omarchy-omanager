@@ -39,230 +39,292 @@ Item {
         target: view.ui
         ignoreUnknownSignals: true
         function onSearchCleared() { searchField.text = "" }
-        function onFocusSearch() { if (view.ui.tabName !== "settings") searchField.forceActiveFocus() }
+        function onFocusSearch() { searchField.forceActiveFocus() }
+        // one header search box serves both: the catalog, and (on Settings) the settings
+        function onTabNameChanged() { searchField.text = view.ui.tabName === "settings" ? view.ui.settingsFilter : view.ui.query }
     }
 
     // ---- chrome ----------------------------------------------------------------
     Rectangle {   // opaque base: the same surface in the panel and the pop-out window
         anchors.fill: parent
-        radius: ui.radius
+        radius: ui.r(3)
         color: ui.surface
     }
     Rectangle {   // accent wash
         anchors.fill: parent
-        radius: ui.radius
+        radius: ui.r(3)
         color: ui.accentTint(ui.tintPct / 100)
     }
-    Rectangle {   // thin outline
+    Rectangle {   // edge: a plain neutral line (like the Omaudix panel); accent only if "Window outline" is on
         anchors.fill: parent
-        radius: ui.radius
+        radius: ui.r(3)
         color: "transparent"
-        border.width: ui.frameOn ? 1 : 0
-        border.color: ui.accent
-        opacity: 0.8
+        border.width: 1
+        border.color: ui.frameOn ? ui.accent : ui.tint(0.14)
+        opacity: ui.frameOn ? 0.8 : 1
+    }
+
+    function setSearch(t) {
+        if (ui.tabName === "settings") ui.settingsFilter = t
+        else ui.query = t
     }
 
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: ui.px(14)
-        spacing: ui.px(10)
+        spacing: ui.px(12)
 
-        // ---- header ----
-        RowLayout {
+        // ---- header card: title, search, actions ----
+        Rectangle {
             Layout.fillWidth: true
-            spacing: ui.px(12)
+            implicitHeight: headerCol.implicitHeight + ui.px(24)
+            radius: ui.r(2.5)
+            color: ui.tint(0.05)
+            border.width: 1
+            border.color: ui.tint(0.08)
 
-            Row {
-                spacing: ui.px(8)
-                Layout.alignment: Qt.AlignVCenter
-                Rectangle {
-                    width: ui.px(8); height: width; radius: width / 2
-                    color: ui.accent
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-                Column {
-                    spacing: 0
-                    Txt {
-                        ui: view.ui
-                        text: "OMANAGER"
-                        font.pixelSize: ui.fs(13)
-                        font.letterSpacing: 3
-                        font.weight: Font.Bold
+            ColumnLayout {
+                id: headerCol
+                anchors.fill: parent
+                anchors.margins: ui.px(12)
+                spacing: ui.px(10)
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: ui.px(12)
+
+                    Rectangle {
+                        Layout.preferredWidth: ui.px(46)
+                        Layout.preferredHeight: ui.px(46)
+                        Layout.alignment: Qt.AlignVCenter
+                        radius: ui.r(2)
+                        color: ui.accentTint(0.18)
+                        border.width: 1
+                        border.color: ui.tint(0.08)
+                        Rectangle {
+                            anchors.centerIn: parent
+                            width: ui.px(14); height: width; radius: width / 2
+                            color: ui.accent
+                        }
                     }
-                    Txt {
-                        ui: view.ui
-                        font.pixelSize: ui.fs(9)
-                        font.letterSpacing: 1
-                        opacity: 0.5
-                        text: ui.service && ui.service.catalog.length > 0
-                            ? ui.service.catalog.length + " PLUGINS  \u00B7  " + ui.service.installed.length + " INSTALLED"
-                            : "PLUGIN MANAGER"
-                    }
-                }
-            }
 
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.minimumWidth: ui.px(110)
-                Layout.preferredWidth: ui.px(460)
-                Layout.maximumWidth: ui.px(460)
-                implicitHeight: ui.px(30)
-                radius: Math.max(2, ui.radius)
-                color: ui.tint(0.05)
-                border.width: 1
-                border.color: searchField.activeFocus ? ui.accent : ui.tint(0.14)
-                opacity: ui.tabName === "settings" ? 0.35 : 1
-                clip: true               // text longer than the box is cut at its edge, never drawn past it
-
-                Txt { ui: view.ui; anchors.left: parent.left; anchors.leftMargin: ui.px(10); anchors.verticalCenter: parent.verticalCenter; text: "\u2315"; opacity: 0.5; font.pixelSize: ui.fs(14) }
-                PasteInput {
-                    id: searchField
-                    key: "search"
-                    service: ui.service
-                    anchors.fill: parent
-                    anchors.leftMargin: ui.px(30)
-                    anchors.rightMargin: ui.px(30)
-                    enabled: ui.tabName !== "settings"
-                    color: ui.fg
-                    font.family: ui.fontName
-                    font.pixelSize: ui.fs(12)
-                    maximumLength: 50
-                    text: ui.query
-                    onTextEdited: ui.query = text
-                    Keys.onEscapePressed: function(e) {
-                        if (text !== "") { text = ""; ui.query = ""; e.accepted = true }
-                        else e.accepted = false
-                    }
-                    Keys.onDownPressed: results.focusGrid()
-                    Txt {
-                        ui: view.ui
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width
-                        elide: Text.ElideRight
-                        visible: searchField.text === "" && !searchField.activeFocus
-                        text: "Search names, authors, tags\u2026"
-                        opacity: 0.4
-                    }
-                }
-                Txt {
-                    ui: view.ui
-                    anchors.right: parent.right
-                    anchors.rightMargin: ui.px(10)
-                    anchors.verticalCenter: parent.verticalCenter
-                    visible: searchField.text !== ""
-                    text: "\u2715"
-                    opacity: 0.6
-                    MouseArea { anchors.fill: parent; anchors.margins: -6; cursorShape: Qt.PointingHandCursor; onClicked: { searchField.text = ""; ui.query = "" } }
-                }
-            }
-
-            Item { Layout.fillWidth: true }
-
-            Btn {
-                ui: view.ui
-                visible: ui.tabName !== "settings"
-                text: ui.viewMode === "split" ? "\u25E7 Stage"
-                    : (ui.viewMode === "grid" ? "\u25A6 Cards"
-                    : (ui.viewMode === "list" ? "\u2630 List" : "\u2263 Compact"))
-                onClicked: view.cycleLayout()
-            }
-            Btn {
-                ui: view.ui
-                text: ui.service && ui.service.catalogState === "loading" ? "Refreshing\u2026" : "\u21BB Refresh"
-                enabled: ui.service && ui.service.catalogState !== "loading"
-                onClicked: { ui.service.refresh(true); ui.service.refreshInstalled() }
-            }
-            Btn {
-                ui: view.ui
-                text: ui.popped ? "\u21F2 Dock" : "\u21F1 Pop out"
-                onClicked: ui.popped ? ui.dockRequested() : ui.popOutRequested()
-            }
-            Btn { ui: view.ui; text: "\u2715"; implicitWidth: ui.px(30); onClicked: ui.closeRequested() }
-        }
-
-        // ---- tabs ----
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: ui.px(18)
-
-            Repeater {
-                model: [
-                    { key: "browse", label: "BROWSE", n: -1 },
-                    { key: "installed", label: "INSTALLED", n: ui.service ? ui.service.installed.length : 0 },
-                    { key: "updates", label: "UPDATES", n: ui.service ? ui.service.updateCount : 0 },
-                    { key: "saved", label: "SAVED", n: ui.service ? Object.keys(ui.service.bookmarks).length : 0 },
-                    { key: "settings", label: "SETTINGS", n: -1 }
-                ]
-                delegate: Item {
-                    readonly property bool on: ui.tabName === modelData.key
-                    implicitWidth: tabRow.implicitWidth
-                    implicitHeight: ui.px(26)
-                    Row {
-                        id: tabRow
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: ui.px(6)
+                    ColumnLayout {
+                        Layout.alignment: Qt.AlignVCenter
+                        spacing: 2
                         Txt {
                             ui: view.ui
-                            text: modelData.label
-                            font.pixelSize: ui.fs(11)
+                            text: "OMANAGER"
+                            font.pixelSize: ui.fs(14)
                             font.letterSpacing: 2
-                            font.weight: parent.parent.on ? Font.Bold : Font.Normal
-                            opacity: parent.parent.on ? 1 : (tabArea.containsMouse ? 0.85 : 0.5)
+                            font.weight: Font.DemiBold
                         }
-                        Rectangle {
-                            visible: modelData.n > 0
-                            width: cnt.implicitWidth + ui.px(10); height: ui.px(15); radius: height / 2
-                            color: modelData.key === "updates" ? ui.warn : ui.tint(0.16)
-                            anchors.verticalCenter: parent.verticalCenter
+                        Txt {
+                            ui: view.ui
+                            font.pixelSize: ui.fs(10)
+                            opacity: 0.6
+                            text: ui.service && ui.service.catalog.length > 0
+                                ? ui.service.catalog.length + " plugins  \u00B7  " + ui.service.installed.length + " installed"
+                                : "Plugin manager"
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: ui.px(110)
+                        Layout.preferredWidth: ui.px(320)
+                        Layout.maximumWidth: ui.px(380)
+                        Layout.alignment: Qt.AlignVCenter
+                        implicitHeight: ui.px(30)
+                        radius: ui.r(1.5)
+                        color: ui.tint(0.06)
+                        border.width: 1
+                        border.color: searchField.activeFocus ? ui.tint(0.28) : ui.tint(0.10)
+                        clip: true               // text longer than the box is cut at its edge, never drawn past it
+
+                        Txt { ui: view.ui; anchors.left: parent.left; anchors.leftMargin: ui.px(10); anchors.verticalCenter: parent.verticalCenter; text: "\u2315"; opacity: 0.5; font.pixelSize: ui.fs(14) }
+                        PasteInput {
+                            id: searchField
+                            key: "search"
+                            service: ui.service
+                            anchors.fill: parent
+                            anchors.leftMargin: ui.px(30)
+                            anchors.rightMargin: ui.px(30)
+                            color: ui.fg
+                            font.family: ui.fontName
+                            font.pixelSize: ui.fs(12)
+                            maximumLength: 50
+                            text: ui.query
+                            onTextEdited: view.setSearch(text)
+                            Keys.onEscapePressed: function(e) {
+                                if (text !== "") { text = ""; view.setSearch(""); e.accepted = true }
+                                else e.accepted = false
+                            }
+                            Keys.onDownPressed: if (ui.tabName !== "settings") results.focusGrid()
                             Txt {
-                                id: cnt
                                 ui: view.ui
-                                anchors.centerIn: parent
-                                text: modelData.n
-                                font.pixelSize: ui.fs(9)
-                                color: modelData.key === "updates" ? ui.warnText : ui.fg
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: parent.width
+                                elide: Text.ElideRight
+                                visible: searchField.text === "" && !searchField.activeFocus
+                                text: ui.tabName === "settings" ? "Search settings\u2026" : "Search names, authors, tags\u2026"
+                                opacity: 0.4
                             }
                         }
+                        Txt {
+                            ui: view.ui
+                            anchors.right: parent.right
+                            anchors.rightMargin: ui.px(10)
+                            anchors.verticalCenter: parent.verticalCenter
+                            visible: searchField.text !== ""
+                            text: "\u2715"
+                            opacity: 0.6
+                            MouseArea { anchors.fill: parent; anchors.margins: -6; cursorShape: Qt.PointingHandCursor; onClicked: { searchField.text = ""; view.setSearch("") } }
+                        }
                     }
-                    Rectangle {
-                        visible: parent.on
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.bottom: parent.bottom
-                        height: 2
-                        color: ui.accent
-                    }
-                    MouseArea {
-                        id: tabArea
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: ui.tabName = modelData.key
-                    }
-                }
-            }
 
-            Item { Layout.fillWidth: true }
+                    Item { Layout.fillWidth: true; Layout.minimumWidth: 0 }
 
-            Btn {
-                ui: view.ui
-                visible: ui.tabName === "updates" && ui.service && ui.service.updateCount > 0
-                kind: "primary"
-                text: "Update all (" + (ui.service ? ui.service.updateCount : 0) + ")"
-                onClicked: {
-                    for (var i = 0; i < ui.items.length; i++)
-                        ui.service.perform("update", ui.items[i].id, ui.items[i].name, ui.items[i].repo)
+                    Btn {
+                        ui: view.ui
+                        Layout.alignment: Qt.AlignVCenter
+                        visible: ui.tabName !== "settings"
+                        text: ui.viewMode === "split" ? "\u25E7 Stage"
+                            : (ui.viewMode === "grid" ? "\u25A6 Cards"
+                            : (ui.viewMode === "list" ? "\u2630 List" : "\u2263 Compact"))
+                        onClicked: view.cycleLayout()
+                    }
+                    Btn {
+                        ui: view.ui
+                        Layout.alignment: Qt.AlignVCenter
+                        visible: ui.tabName === "updates" && ui.service && ui.service.updateCount > 0
+                        kind: "primary"
+                        text: "Update all (" + (ui.service ? ui.service.updateCount : 0) + ")"
+                        onClicked: {
+                            for (var i = 0; i < ui.items.length; i++)
+                                ui.service.perform("update", ui.items[i].id, ui.items[i].name, ui.items[i].repo)
+                        }
+                    }
+                    Btn {
+                        ui: view.ui
+                        Layout.alignment: Qt.AlignVCenter
+                        visible: ui.tabName === "settings"
+                        kind: settingsView.confirmReset ? "primary" : "normal"
+                        text: settingsView.confirmReset ? "Really reset?" : "Reset all"
+                        onClicked: settingsView.resetAll()
+                    }
+                    Btn {
+                        ui: view.ui
+                        Layout.alignment: Qt.AlignVCenter
+                        text: ui.service && ui.service.catalogState === "loading" ? "Refreshing\u2026" : "\u21BB Refresh"
+                        enabled: ui.service && ui.service.catalogState !== "loading"
+                        onClicked: { ui.service.refresh(true); ui.service.refreshInstalled() }
+                    }
+                    Btn {
+                        ui: view.ui
+                        Layout.alignment: Qt.AlignVCenter
+                        text: ui.popped ? "\u21F2 Dock" : "\u21F1 Pop out"
+                        onClicked: ui.popped ? ui.dockRequested() : ui.popOutRequested()
+                    }
+                    Btn { ui: view.ui; Layout.alignment: Qt.AlignVCenter; text: "\u00D7"; implicitWidth: ui.px(30); onClicked: ui.closeRequested() }
                 }
             }
         }
-        Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: ui.tint(0.10) }
+
+        // ---- tabs ------------------------------------------------------------------
+        Item {
+            Layout.fillWidth: true
+            implicitHeight: ui.px(32)
+
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                height: 1
+                color: ui.tint(0.10)
+            }
+
+            RowLayout {
+                anchors.fill: parent
+                spacing: 0
+
+                Repeater {
+                    model: [
+                        { key: "browse", label: "Browse", n: -1 },
+                        { key: "installed", label: "Installed", n: ui.service ? ui.service.installed.length : 0 },
+                        { key: "updates", label: "Updates", n: ui.service ? ui.service.updateCount : 0 },
+                        { key: "saved", label: "Saved", n: ui.service ? Object.keys(ui.service.bookmarks).length : 0 },
+                        { key: "settings", label: "Settings", n: -1 }
+                    ]
+                    delegate: Item {
+                        readonly property bool on: ui.tabName === modelData.key
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: 1
+                        Layout.fillHeight: true
+
+                        Row {
+                            id: tabRow
+                            anchors.centerIn: parent
+                            anchors.verticalCenterOffset: -1
+                            spacing: ui.px(6)
+                            Txt {
+                                ui: view.ui
+                                text: modelData.label
+                                font.pixelSize: ui.fs(12)
+                                font.weight: parent.parent.on ? Font.DemiBold : Font.Normal
+                                opacity: parent.parent.on ? 1 : (tabArea.containsMouse ? 0.8 : 0.5)
+                            }
+                            Rectangle {
+                                visible: modelData.n > 0
+                                width: cnt.implicitWidth + ui.px(10); height: ui.px(15); radius: height / 2
+                                color: modelData.key === "updates" ? ui.warn : ui.tint(0.16)
+                                anchors.verticalCenter: parent.verticalCenter
+                                Txt {
+                                    id: cnt
+                                    ui: view.ui
+                                    anchors.centerIn: parent
+                                    text: modelData.n
+                                    font.pixelSize: ui.fs(9)
+                                    color: modelData.key === "updates" ? ui.warnText : ui.fg
+                                }
+                            }
+                        }
+                        Rectangle {
+                            visible: parent.on
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.bottom: parent.bottom
+                            height: 2
+                            radius: 1
+                            color: ui.accent
+                        }
+                        MouseArea {
+                            id: tabArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: ui.tabName = modelData.key
+                        }
+                    }
+                }
+            }
+        }
+
+        // ---- content card -------------------------------------------------------------
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            Layout.minimumHeight: 0
+            radius: ui.r(2.5)
+            color: ui.tint(0.035)
+            border.width: 1
+            border.color: ui.tint(0.07)
+            clip: true
 
         // ---- main ----
         Item {
             id: mainArea
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            Layout.minimumWidth: 0
+            anchors.fill: parent
+            anchors.margins: ui.px(10)
 
             RowLayout {
                 anchors.fill: parent
@@ -314,6 +376,7 @@ Item {
             }
 
             SettingsView {
+                id: settingsView
                 ui: view.ui
                 anchors.fill: parent
                 visible: ui.tabName === "settings"
@@ -328,6 +391,8 @@ Item {
                 anchors.right: parent.right
                 width: Math.min(ui.px(420), parent.width - ui.px(40))
             }
+        }
+
         }
 
         // ---- activity log ----
@@ -362,16 +427,28 @@ Item {
             }
         }
 
-        // ---- status bar ----
+        // ---- footer: Esc hint, status, log, and the instant-apply note ----------------
         RowLayout {
             Layout.fillWidth: true
-            spacing: ui.px(10)
+            spacing: ui.px(8)
+
+            Rectangle {
+                visible: !ui.popped
+                implicitWidth: escLabel.implicitWidth + ui.px(12)
+                implicitHeight: ui.px(18)
+                radius: ui.r(1)
+                color: ui.tint(0.08)
+                Txt { id: escLabel; ui: view.ui; anchors.centerIn: parent; text: "Esc"; font.pixelSize: ui.fs(10); opacity: 0.75 }
+            }
+            Txt { ui: view.ui; visible: !ui.popped; text: "close"; font.pixelSize: ui.fs(10); opacity: 0.45 }
+
             Txt {
                 ui: view.ui
                 Layout.fillWidth: true
                 elide: Text.ElideRight
                 font.pixelSize: ui.fs(10)
                 opacity: 0.65
+                visible: ui.tabName !== "settings"
                 color: ui.service && ui.service.catalogState === "stale" ? ui.warn : ui.fg
                 text: {
                     if (!ui.service) return ""
@@ -384,8 +461,18 @@ Item {
                         + (ui.service.log.length ? "  \u00B7  " + ui.service.log[ui.service.log.length - 1].text : "")
                 }
             }
-            Btn { ui: view.ui; text: ui.showLog ? "Hide log" : "Log"; implicitHeight: ui.px(22); active: ui.showLog; onClicked: ui.showLog = !ui.showLog }
-            Txt { ui: view.ui; visible: !ui.popped; text: "Esc"; font.pixelSize: ui.fs(10); opacity: 0.4 }
+            Txt {
+                ui: view.ui
+                Layout.fillWidth: true
+                visible: ui.tabName === "settings"
+                elide: Text.ElideRight
+                font.pixelSize: ui.fs(10)
+                opacity: 0.45
+                text: settingsView.changed === 0 ? "All settings are at their defaults"
+                    : settingsView.changed + (settingsView.changed === 1 ? " setting differs" : " settings differ") + " from the defaults"
+            }
+            Btn { ui: view.ui; visible: ui.tabName !== "settings"; text: ui.showLog ? "Hide log" : "Log"; implicitHeight: ui.px(22); active: ui.showLog; onClicked: ui.showLog = !ui.showLog }
+            Txt { ui: view.ui; visible: ui.tabName === "settings"; text: "Changes apply instantly"; font.pixelSize: ui.fs(10); opacity: 0.45 }
         }
     }
 
@@ -405,7 +492,7 @@ Item {
             radius: ui.radius
             color: ui.surface
             border.width: 1
-            border.color: ui.accent
+            border.color: ui.tint(0.18)
 
             ColumnLayout {
                 id: dlg
