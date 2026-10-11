@@ -50,12 +50,12 @@ BarWidget {
     readonly property int opt_cornerRadius: whole(over("cornerRadius", setting("cornerRadius", 4)), 0, 20, 4)
     readonly property bool opt_frame: flag(over("frame", setting("frame", false)), false)
     readonly property int opt_fontScale: whole(over("fontScale", setting("fontScale", 100)), 80, 150, 100)
-    readonly property int opt_surfaceTint: whole(over("surfaceTint", setting("surfaceTint", 6)), 0, 30, 6)
+    readonly property int opt_surfaceTint: whole(over("surfaceTint", setting("surfaceTint", 0)), 0, 30, 0)
     readonly property bool opt_showPreviews: flag(over("showPreviews", setting("showPreviews", true)), true)
-    readonly property int opt_windowWidth: whole(over("windowWidth", setting("windowWidth", 1040)), 640, 1600, 1040)
-    readonly property int opt_windowHeight: whole(over("windowHeight", setting("windowHeight", 700)), 420, 1100, 700)
+    readonly property int opt_windowWidth: whole(over("windowWidth", setting("windowWidth", 460)), 400, 1600, 460)
+    readonly property int opt_windowHeight: whole(over("windowHeight", setting("windowHeight", 620)), 420, 1100, 620)
     readonly property string opt_openAs: pick(over("openAs", setting("openAs", "panel")), ["panel", "window"], "panel")
-    readonly property string opt_viewMode: pick(over("viewMode", setting("viewMode", "split")), ["split", "grid", "list", "compact"], "split")
+    readonly property string opt_viewMode: pick(over("viewMode", setting("viewMode", "list")), ["split", "grid", "list", "compact"], "list")
     readonly property string opt_columns: pick(over("columns", setting("columns", "auto")), ["auto", "1", "2", "3", "4"], "auto")
     readonly property string opt_filtersPanel: pick(over("filtersPanel", setting("filtersPanel", "left")), ["left", "hidden"], "left")
     readonly property string opt_defaultSource: pick(over("defaultSource", setting("defaultSource", "community")), ["community", "builtin", "all"], "community")
@@ -289,7 +289,7 @@ BarWidget {
             else showWindow()
         } else if (panelOpened) {
             closePanel()
-        } else {
+        } else if (!(panelLoader.item && panelLoader.item.justClosedByGrab === true)) {
             openPanel()
         }
     }

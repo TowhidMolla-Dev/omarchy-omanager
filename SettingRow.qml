@@ -139,23 +139,14 @@ Item {
             }
 
             // switch
-            Rectangle {
+            Sw {
+                Layout.alignment: Qt.AlignVCenter
                 visible: root.kind === "bool"
-                implicitWidth: ui.px(38); implicitHeight: ui.px(22); radius: height / 2
-                color: root.boolValue ? ui.accent : ui.tint(0.18)
-                Behavior on color { enabled: ui.animations; ColorAnimation { duration: 100 } }
-                Rectangle {
-                    width: parent.height - 6; height: width; radius: width / 2
-                    y: 3
-                    x: root.boolValue ? parent.width - width - 3 : 3
-                    color: root.boolValue ? ui.accentText : ui.fg
-                    Behavior on x { enabled: ui.animations; NumberAnimation { duration: 110 } }
-                }
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.commit(!root.boolValue)
-                }
+                k: ui.densityF
+                animate: ui.animations
+                ink: ui.fg; accent: ui.accent; knob: ui.accentText
+                on: root.boolValue
+                onFlipped: root.commit(!root.boolValue)
             }
         }
 

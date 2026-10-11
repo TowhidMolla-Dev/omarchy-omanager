@@ -26,8 +26,8 @@ Item {
     // ---- theme & spacing helpers (used by every child as ui.*) ----------------
     readonly property var cfgSafe: cfg ? cfg : ({
         colorMode: "theme", accentColor: "#ff6a1f", cardStyle: "soft", density: "comfortable",
-        cornerRadius: 4, fontScale: 100, surfaceTint: 6, showPreviews: true, frame: false, openAs: "panel",
-        windowWidth: 1040, windowHeight: 700, viewMode: "split", columns: "auto", filtersPanel: "left",
+        cornerRadius: 4, fontScale: 100, surfaceTint: 0, showPreviews: true, frame: false, openAs: "panel",
+        windowWidth: 460, windowHeight: 620, viewMode: "list", columns: "auto", filtersPanel: "left",
         defaultSource: "community", defaultSort: "newest", recencyScope: "either", recencyDays: "any",
         verifiedOnly: false, hideInstalled: false, showCounts: true, newBadgeDays: 14,
         confirmInstall: true, confirmRemove: true, allowUnverified: true, showSecurityNote: true
@@ -121,7 +121,9 @@ Item {
     }
     function onText(c) { return contrast(onFill(c)) }
     function accentTint(a) { return Qt.rgba(accent.r, accent.g, accent.b, a) }
-    function fs(n) { return Math.round(n * fontPct / 100) }
+    // Type is drawn: 11 titles, 10 body, 8 to 9 hints.
+    readonly property real baseScale: 0.82
+    function fs(n) { return Math.max(7, Math.round(n * fontPct / 100 * baseScale)) }
     function px(n) {
         return Math.round(n * densityF)
     }

@@ -54,23 +54,23 @@ SPEC = [
     I("cornerRadius", "Roundness", 4, 0, 20, 2, "0 is square, 20 is very round."),
     B("frame", "Window outline", False, "Draw the window edge in the accent color instead of a plain neutral line."),
     I("fontScale", "Text size", 100, 80, 150, 5, "1 is normal, 1.25 is a quarter bigger.", divisor=100, decimals=2),
-    I("surfaceTint", "Window tint", 6, 0, 30, 1, "How much of the accent color washes over the window."),
+    I("surfaceTint", "Window tint", 0, 0, 30, 1, "How much of the accent color washes over the window. 0 keeps it plain, like the other panels."),
     B("showPreviews", "Show screenshots", True,
       "Loads preview images from plugins.omarchy.org. Turn off to stay fully offline for images."),
   ]),
   ("Window", [
-    I("windowWidth", "Window width", 1040, 640, 1600, 20, "How wide the manager opens."),
-    I("windowHeight", "Window height", 700, 420, 1100, 20, "How tall the manager opens."),
+    I("windowWidth", "Window width", 460, 400, 1600, 20, "How wide the manager opens. From about 720 it also gets the filter sidebar and the List + stage layout."),
+    I("windowHeight", "Window height", 620, 420, 1100, 20, "How tall the manager opens."),
     E("openAs", "Open as", "panel", ["panel", "window"], {"panel": "Bar panel", "window": "Own window"},
       "Where the bar button opens the manager. You can always pop it out or dock it back from the header.", control="tiles"),
-    E("viewMode", "Layout", "split", ["split", "grid", "list", "compact"],
+    E("viewMode", "Layout", "list", ["split", "grid", "list", "compact"],
       {"split": "List + stage", "grid": "Cards", "list": "List", "compact": "Compact"},
-      "List + stage keeps a big preview of the selected plugin beside the list. Cards show screenshots, list fits the most, compact is a dense table-like view.", control="tiles"),
+      "List + stage keeps a big preview of the selected plugin beside the list (wide windows only). Cards show screenshots, list fits the most, compact is a dense table-like view.", control="tiles"),
     E("columns", "Card columns", "auto", ["auto", "1", "2", "3", "4"],
       {"auto": "Auto", "1": "1", "2": "2", "3": "3", "4": "4"},
       "Auto fits as many as the window allows.", when=[{"key": "viewMode", "is": ["grid"]}]),
     E("filtersPanel", "Filters sidebar", "left", ["left", "hidden"], {"left": "Shown", "hidden": "Hidden"},
-      "Hide it for a cleaner look. Search still works."),
+      "Hide it for a cleaner look. Search still works. In a narrow window the filters open from a Filters button instead."),
   ]),
   ("Browse", [
     E("defaultSource", "Start on", "community", ["community", "builtin", "all"],
@@ -128,7 +128,7 @@ def manifest_item(it):
 
 def write_manifest():
     m = {
-      "schemaVersion": 1, "id": PLUGIN_ID, "name": "Omanager", "version": "1.4.0",
+      "schemaVersion": 1, "id": PLUGIN_ID, "name": "Omanager", "version": "1.5.0",
       "author": "qempexe", "license": "MIT",
       "description": "Plugin manager for the Omarchy bar: browse, filter, install, update and remove plugins from a window.",
       "kinds": ["service", "bar-widget"], "keepLoaded": True,

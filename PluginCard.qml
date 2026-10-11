@@ -18,6 +18,9 @@ Item {
     signal opened()
 
     readonly property var st: ui.stateOf(p)
+    readonly property bool on: st.installed && st.enabled
+    readonly property bool busy: !!(ui.service && ui.service.busyIds[p.id])
+    function toggleEnabled() { ui.requestAction(st.enabled ? "disable" : "enable", p) }
     readonly property color tone: ui.tone(p.category)
     readonly property bool isNew: p.addedAt > 0 && (ui.now - p.addedAt) < ui.newBadgeDays * 86400000
     readonly property bool showShot: !list && !compact && ui.showPreviews
@@ -37,15 +40,16 @@ Item {
     Rectangle {
         id: body
         anchors.fill: parent
-        anchors.margins: root.compact ? 0 : ui.px(5)
+        anchors.margins: root.compact ? 0 : (root.list ? ui.px(3) : ui.px(5))
         radius: root.compact ? 0 : ui.r(2)
         clip: true
         color: root.compact
             ? (area.containsMouse ? ui.tint(0.08) : "transparent")
-            : (ui.cardStyle === "soft" ? ui.tint(area.containsMouse ? 0.09 : 0.045) : (area.containsMouse ? ui.tint(0.04) : "transparent"))
-        border.width: root.compact ? 0 : (root.current ? 2 : (ui.cardStyle === "flat" ? 0 : 1))
+            : (root.on ? ui.accentTint(area.containsMouse ? 0.20 : 0.14)
+               : (ui.cardStyle === "soft" ? ui.tint(area.containsMouse ? 0.09 : 0.045) : (area.containsMouse ? ui.tint(0.04) : "transparent")))
+        border.width: root.compact ? 0 : (root.current ? 2 : ((ui.cardStyle === "flat" && !root.on) ? 0 : 1))
         border.color: root.compact ? "transparent"
-            : (root.current ? ui.accent : ui.tint(area.containsMouse ? 0.25 : 0.10))
+            : ((root.current || root.on) ? ui.accent : ui.tint(area.containsMouse ? 0.25 : 0.10))
         Behavior on color { enabled: ui.animations; ColorAnimation { duration: 100 } }
 
         MouseArea {
@@ -182,11 +186,18 @@ Item {
                     }
                     Txt {
                         ui: root.ui
-                        visible: root.st.installed
-                        text: ui.service && ui.service.busyIds[p.id] ? ui.service.busyIds[p.id] + "\u2026"
-                              : (root.st.enabled ? "\u25CF Enabled" : "\u25CB Disabled")
+                        visible: root.busy
+                        text: root.busy ? ui.service.busyIds[p.id] + "\u2026" : ""
                         font.pixelSize: ui.fs(10)
                         opacity: 0.8
+                    }
+                    Sw {
+                        visible: root.st.installed
+                        enabled: !root.busy
+                        k: ui.densityF
+                        ink: ui.fg; accent: ui.accent; knob: ui.accentText
+                        on: root.st.enabled
+                        onFlipped: root.toggleEnabled()
                     }
                 }
                 RowLayout {
@@ -216,10 +227,11 @@ Item {
         RowLayout {
             visible: root.list && !root.compact
             anchors.fill: parent
-            anchors.margins: ui.px(8)
+            anchors.margins: ui.px(10)
             spacing: ui.px(10)
 
             Rectangle {
+                visible: ui.showPreviews && root.width > ui.px(520)
                 Layout.preferredWidth: ui.px(72)
                 Layout.preferredHeight: ui.px(40)
                 Layout.alignment: Qt.AlignVCenter
@@ -271,19 +283,21 @@ Item {
                 Txt {
                     ui: root.ui
                     Layout.fillWidth: true
-                    visible: root.meta !== ""
+                    visible: root.meta !== "" && root.width > ui.px(520)
                     text: root.meta
                     font.pixelSize: ui.fs(10)
                     opacity: 0.6
                     elide: Text.ElideRight
                 }
             }
-            Txt {
-                ui: root.ui
-                visible: root.st.installed && root.width > ui.px(420)
-                text: root.st.enabled ? "\u25CF Enabled" : "\u25CB Disabled"
-                font.pixelSize: ui.fs(10)
-                opacity: 0.8
+            Sw {
+                Layout.alignment: Qt.AlignVCenter
+                visible: root.st.installed
+                enabled: !root.busy
+                k: ui.densityF
+                ink: ui.fg; accent: ui.accent; knob: ui.accentText
+                on: root.st.enabled
+                onFlipped: root.toggleEnabled()
             }
             Btn {
                 ui: root.ui
@@ -388,13 +402,14 @@ Item {
                 font.weight: Font.Bold
             }
 
-            Txt {
-                ui: root.ui
+            Sw {
+                Layout.alignment: Qt.AlignVCenter
                 visible: root.st.installed
-                text: root.st.enabled ? "\u25CF" : "\u25CB"
-                color: root.st.enabled ? ui.good : ui.fg
-                font.pixelSize: ui.fs(10)
-                opacity: 0.8
+                enabled: !root.busy
+                k: 0.8 * ui.densityF
+                ink: ui.fg; accent: ui.accent; knob: ui.accentText
+                on: root.st.enabled
+                onFlipped: root.toggleEnabled()
             }
 
             Txt {

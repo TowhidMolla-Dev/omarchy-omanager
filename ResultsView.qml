@@ -19,7 +19,7 @@ Item {
         : Math.min(ui.px(150), Math.max(ui.px(64), (width / cols - ui.px(10)) * 9 / 16))
     // Row height: compact = dense table rows, list = short rows, grid = card+shot.
     readonly property real rowH: asCompact ? ui.px(30)
-        : (asList ? ui.px(74) : (shots ? shotH + ui.px(188) : ui.px(176)))
+        : (asList ? (width > ui.px(520) ? ui.px(62) : ui.px(48)) : (shots ? shotH + ui.px(188) : ui.px(176)))
 
     function focusGrid() { grid.forceActiveFocus() }
 

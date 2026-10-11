@@ -2,37 +2,55 @@ import QtQuick
 import QtQuick.Layouts
 import "Model.js" as Model
 
-// The whole manager UI. It lives either inside the bar panel (Panel.qml) or in
-// a floating window (PopoutWindow.qml); both feed it the same UiState (`ui`).
+// The whole manager UI, drawn: one rounded panel,
+// a header card, underlined tabs, one content card of rows, and the Esc footer.
+// It lives either in the docked popup (Panel.qml) or in a floating window
+// (PopoutWindow.qml); both feed it the same UiState (`ui`).
 //
-// Layout, Omatravel-style: a thin accent frame, a compact header with spaced
-// caps title and text tabs, filters on the left, and in "List + stage" mode a
-// big stage on the right showing the selected plugin's preview and actions.
+// Narrow windows (the default) show a compact list with the filters in a drawer.
+// From about 720px wide it also offers the filter sidebar and the "List + stage" view.
 Item {
     id: view
 
     property var ui: null
     clip: true
 
-    readonly property bool split: ui.viewMode === "split"
+    readonly property bool wide: width >= ui.px(720)
+    readonly property bool filtersAllowed: ui.filtersPanelKey === "left"
+    readonly property bool sidebarDocked: wide && filtersAllowed
+    property bool filtersOpen: false
+    // what the layout really is right now ("List + stage" needs room)
+    readonly property string mode: (ui.viewMode === "split" && !wide) ? "list" : ui.viewMode
+    readonly property bool split: mode === "split"
 
     // Esc steps back out of whatever is covering things. True when it did something.
     function stepBack() {
         if (ui.confirm) { ui.confirm = null; return true }
         if (ui.selected && !split) { ui.selected = null; return true }
+        if (filtersOpen) { filtersOpen = false; return true }
         if (ui.showLog) { ui.showLog = false; return true }
+        var t = ui.tabName === "settings" ? ui.settingsFilter : ui.query
+        if (t !== "") {
+            if (ui.tabName === "settings") ui.settingsFilter = ""
+            else ui.query = ""
+            ui.searchCleared()
+            return true
+        }
         return false
     }
 
     function cycleLayout() {
-        var order = ["split", "grid", "list", "compact"]
-        ui.setView(order[(order.indexOf(ui.viewMode) + 1) % order.length])
+        var order = wide ? ["split", "grid", "list", "compact"] : ["grid", "list", "compact"]
+        var i = order.indexOf(mode)
+        ui.setView(order[(i + 1) % order.length])
     }
 
-    // In a window nothing else listens for Esc; in the panel PanelKeyCatcher does.
+    // In a window nothing else listens for Esc; the docked popup has its own shortcut.
     Keys.onEscapePressed: function(e) {
-        if (ui.popped) { view.stepBack(); e.accepted = true }
-        else e.accepted = false
+        if (ui.popped) {
+            if (!view.stepBack()) ui.closeRequested()
+            e.accepted = true
+        } else e.accepted = false
     }
 
     Connections {
@@ -40,22 +58,23 @@ Item {
         ignoreUnknownSignals: true
         function onSearchCleared() { searchField.text = "" }
         function onFocusSearch() { searchField.forceActiveFocus() }
-        // one header search box serves both: the catalog, and (on Settings) the settings
+        // one search box serves both: the catalog, and (on Settings) the settings
         function onTabNameChanged() { searchField.text = view.ui.tabName === "settings" ? view.ui.settingsFilter : view.ui.query }
     }
 
-    // ---- chrome ----------------------------------------------------------------
-    Rectangle {   // opaque base: the same surface in the panel and the pop-out window
+    // ---- chrome: the same panel in the dock and in the pop-out window ------------
+    Rectangle {
         anchors.fill: parent
         radius: ui.r(3)
-        color: ui.surface
+        color: Qt.rgba(ui.surface.r, ui.surface.g, ui.surface.b, 0.97)
     }
-    Rectangle {   // accent wash
+    Rectangle {   // optional accent wash (Window tint, 0 by default)
         anchors.fill: parent
         radius: ui.r(3)
+        visible: ui.tintPct > 0
         color: ui.accentTint(ui.tintPct / 100)
     }
-    Rectangle {   // edge: a plain neutral line (like the Omaudix panel); accent only if "Window outline" is on
+    Rectangle {   // edge: a plain neutral line; accent only if "Window outline" is on
         anchors.fill: parent
         radius: ui.r(3)
         color: "transparent"
@@ -74,159 +93,98 @@ Item {
         anchors.margins: ui.px(14)
         spacing: ui.px(12)
 
-        // ---- header card: title, search, actions ----
+        // ---- header card: title, status, actions ----
         Rectangle {
             Layout.fillWidth: true
-            implicitHeight: headerCol.implicitHeight + ui.px(24)
+            implicitHeight: headerRow.implicitHeight + ui.px(24)
             radius: ui.r(2.5)
             color: ui.tint(0.05)
             border.width: 1
             border.color: ui.tint(0.08)
 
-            ColumnLayout {
-                id: headerCol
+            RowLayout {
+                id: headerRow
                 anchors.fill: parent
                 anchors.margins: ui.px(12)
-                spacing: ui.px(10)
+                spacing: ui.px(12)
 
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: ui.px(12)
-
+                Rectangle {
+                    Layout.alignment: Qt.AlignVCenter
+                    implicitWidth: ui.px(30); implicitHeight: ui.px(30)
+                    radius: ui.r(1.5)
+                    color: ui.accentTint(0.18)
+                    border.width: 1
+                    border.color: ui.tint(0.08)
                     Rectangle {
-                        Layout.preferredWidth: ui.px(46)
-                        Layout.preferredHeight: ui.px(46)
-                        Layout.alignment: Qt.AlignVCenter
-                        radius: ui.r(2)
-                        color: ui.accentTint(0.18)
-                        border.width: 1
-                        border.color: ui.tint(0.08)
-                        Rectangle {
-                            anchors.centerIn: parent
-                            width: ui.px(14); height: width; radius: width / 2
-                            color: ui.accent
-                        }
+                        anchors.centerIn: parent
+                        width: ui.px(10); height: width; radius: width / 2
+                        color: ui.accent
                     }
-
-                    ColumnLayout {
-                        Layout.alignment: Qt.AlignVCenter
-                        spacing: 2
-                        Txt {
-                            ui: view.ui
-                            text: "OMANAGER"
-                            font.pixelSize: ui.fs(14)
-                            font.letterSpacing: 2
-                            font.weight: Font.DemiBold
-                        }
-                        Txt {
-                            ui: view.ui
-                            font.pixelSize: ui.fs(10)
-                            opacity: 0.6
-                            text: ui.service && ui.service.catalog.length > 0
-                                ? ui.service.catalog.length + " plugins  \u00B7  " + ui.service.installed.length + " installed"
-                                : "Plugin manager"
-                        }
-                    }
-
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.minimumWidth: ui.px(110)
-                        Layout.preferredWidth: ui.px(320)
-                        Layout.maximumWidth: ui.px(380)
-                        Layout.alignment: Qt.AlignVCenter
-                        implicitHeight: ui.px(30)
-                        radius: ui.r(1.5)
-                        color: ui.tint(0.06)
-                        border.width: 1
-                        border.color: searchField.activeFocus ? ui.tint(0.28) : ui.tint(0.10)
-                        clip: true               // text longer than the box is cut at its edge, never drawn past it
-
-                        Txt { ui: view.ui; anchors.left: parent.left; anchors.leftMargin: ui.px(10); anchors.verticalCenter: parent.verticalCenter; text: "\u2315"; opacity: 0.5; font.pixelSize: ui.fs(14) }
-                        PasteInput {
-                            id: searchField
-                            key: "search"
-                            service: ui.service
-                            anchors.fill: parent
-                            anchors.leftMargin: ui.px(30)
-                            anchors.rightMargin: ui.px(30)
-                            color: ui.fg
-                            font.family: ui.fontName
-                            font.pixelSize: ui.fs(12)
-                            maximumLength: 50
-                            text: ui.query
-                            onTextEdited: view.setSearch(text)
-                            Keys.onEscapePressed: function(e) {
-                                if (text !== "") { text = ""; view.setSearch(""); e.accepted = true }
-                                else e.accepted = false
-                            }
-                            Keys.onDownPressed: if (ui.tabName !== "settings") results.focusGrid()
-                            Txt {
-                                ui: view.ui
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: parent.width
-                                elide: Text.ElideRight
-                                visible: searchField.text === "" && !searchField.activeFocus
-                                text: ui.tabName === "settings" ? "Search settings\u2026" : "Search names, authors, tags\u2026"
-                                opacity: 0.4
-                            }
-                        }
-                        Txt {
-                            ui: view.ui
-                            anchors.right: parent.right
-                            anchors.rightMargin: ui.px(10)
-                            anchors.verticalCenter: parent.verticalCenter
-                            visible: searchField.text !== ""
-                            text: "\u2715"
-                            opacity: 0.6
-                            MouseArea { anchors.fill: parent; anchors.margins: -6; cursorShape: Qt.PointingHandCursor; onClicked: { searchField.text = ""; view.setSearch("") } }
-                        }
-                    }
-
-                    Item { Layout.fillWidth: true; Layout.minimumWidth: 0 }
-
-                    Btn {
-                        ui: view.ui
-                        Layout.alignment: Qt.AlignVCenter
-                        visible: ui.tabName !== "settings"
-                        text: ui.viewMode === "split" ? "\u25E7 Stage"
-                            : (ui.viewMode === "grid" ? "\u25A6 Cards"
-                            : (ui.viewMode === "list" ? "\u2630 List" : "\u2263 Compact"))
-                        onClicked: view.cycleLayout()
-                    }
-                    Btn {
-                        ui: view.ui
-                        Layout.alignment: Qt.AlignVCenter
-                        visible: ui.tabName === "updates" && ui.service && ui.service.updateCount > 0
-                        kind: "primary"
-                        text: "Update all (" + (ui.service ? ui.service.updateCount : 0) + ")"
-                        onClicked: {
-                            for (var i = 0; i < ui.items.length; i++)
-                                ui.service.perform("update", ui.items[i].id, ui.items[i].name, ui.items[i].repo)
-                        }
-                    }
-                    Btn {
-                        ui: view.ui
-                        Layout.alignment: Qt.AlignVCenter
-                        visible: ui.tabName === "settings"
-                        kind: settingsView.confirmReset ? "primary" : "normal"
-                        text: settingsView.confirmReset ? "Really reset?" : "Reset all"
-                        onClicked: settingsView.resetAll()
-                    }
-                    Btn {
-                        ui: view.ui
-                        Layout.alignment: Qt.AlignVCenter
-                        text: ui.service && ui.service.catalogState === "loading" ? "Refreshing\u2026" : "\u21BB Refresh"
-                        enabled: ui.service && ui.service.catalogState !== "loading"
-                        onClicked: { ui.service.refresh(true); ui.service.refreshInstalled() }
-                    }
-                    Btn {
-                        ui: view.ui
-                        Layout.alignment: Qt.AlignVCenter
-                        text: ui.popped ? "\u21F2 Dock" : "\u21F1 Pop out"
-                        onClicked: ui.popped ? ui.dockRequested() : ui.popOutRequested()
-                    }
-                    Btn { ui: view.ui; Layout.alignment: Qt.AlignVCenter; text: "\u00D7"; implicitWidth: ui.px(30); onClicked: ui.closeRequested() }
                 }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    Layout.alignment: Qt.AlignVCenter
+                    spacing: 2
+                    Txt {
+                        ui: view.ui
+                        Layout.fillWidth: true
+                        text: "Omanager"
+                        font.pixelSize: ui.fs(13)
+                        font.weight: Font.DemiBold
+                        elide: Text.ElideRight
+                    }
+                    Txt {
+                        ui: view.ui
+                        Layout.fillWidth: true
+                        font.pixelSize: ui.fs(11)
+                        opacity: 0.6
+                        elide: Text.ElideRight
+                        text: {
+                            if (!ui.service) return "Starting\u2026"
+                            if (ui.service.busy) return ui.service.busyLabel
+                            if (ui.service.catalog.length > 0)
+                                return ui.service.catalog.length + " plugins  \u00B7  " + ui.service.installed.length + " installed"
+                            return ui.service.catalogState === "loading" ? "Downloading catalog\u2026" : "Plugin manager"
+                        }
+                    }
+                }
+
+                Btn {
+                    ui: view.ui
+                    Layout.alignment: Qt.AlignVCenter
+                    visible: ui.tabName === "updates" && ui.service && ui.service.updateCount > 0
+                    kind: "primary"
+                    text: "Update all (" + (ui.service ? ui.service.updateCount : 0) + ")"
+                    onClicked: {
+                        for (var i = 0; i < ui.items.length; i++)
+                            ui.service.perform("update", ui.items[i].id, ui.items[i].name, ui.items[i].repo)
+                    }
+                }
+                Btn {
+                    ui: view.ui
+                    Layout.alignment: Qt.AlignVCenter
+                    visible: ui.tabName === "settings"
+                    kind: settingsView.confirmReset ? "primary" : "normal"
+                    text: settingsView.confirmReset ? "Really reset?" : "Reset all"
+                    onClicked: settingsView.resetAll()
+                }
+                Btn {
+                    ui: view.ui
+                    Layout.alignment: Qt.AlignVCenter
+                    text: ui.service && ui.service.catalogState === "loading" ? "\u2026" : "\u21BB"
+                    implicitWidth: ui.px(24)
+                    enabled: ui.service && ui.service.catalogState !== "loading"
+                    onClicked: { ui.service.refresh(true); ui.service.refreshInstalled() }
+                }
+                Btn {
+                    ui: view.ui
+                    Layout.alignment: Qt.AlignVCenter
+                    text: ui.popped ? "Dock" : "Pop out"
+                    onClicked: ui.popped ? ui.dockRequested() : ui.popOutRequested()
+                }
+                Btn { ui: view.ui; Layout.alignment: Qt.AlignVCenter; text: "\u00D7"; implicitWidth: ui.px(24); onClicked: ui.closeRequested() }
             }
         }
 
@@ -320,79 +278,182 @@ Item {
             border.color: ui.tint(0.07)
             clip: true
 
-        // ---- main ----
-        Item {
-            id: mainArea
-            anchors.fill: parent
-            anchors.margins: ui.px(10)
-
-            RowLayout {
+            Item {
+                id: mainArea
                 anchors.fill: parent
-                spacing: ui.px(12)
-                visible: ui.tabName !== "settings"
+                anchors.margins: ui.px(10)
 
-                FilterSidebar {
-                    ui: view.ui
-                    visible: ui.filtersPanelKey === "left"
-                    Layout.preferredWidth: ui.px(214)
-                    Layout.fillHeight: true
-                }
-                Rectangle {
-                    visible: ui.filtersPanelKey === "left"
-                    Layout.fillHeight: true
-                    implicitWidth: 1
-                    color: ui.tint(0.10)
-                }
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: ui.px(8)
 
-                ResultsView {
-                    id: results
-                    ui: view.ui
-                    Layout.fillWidth: !view.split
-                    Layout.minimumWidth: ui.px(220)
-                    // wide enough for the full stats line ("... upgraded today") without cutting it off
-                    Layout.preferredWidth: view.split
-                        ? Math.max(ui.px(240), Math.min(ui.px(500), mainArea.width * 0.46)) : ui.px(300)
-                    Layout.maximumWidth: view.split ? Math.max(ui.px(240), Math.min(ui.px(500), mainArea.width * 0.46)) : 100000
-                    Layout.fillHeight: true
-                }
+                    // ---- toolbar: search, filters, layout ----
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: ui.px(8)
 
-                Rectangle {
-                    visible: view.split
-                    Layout.fillHeight: true
-                    implicitWidth: 1
-                    color: ui.tint(0.10)
-                }
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: ui.px(80)
+                            Layout.maximumWidth: ui.px(420)
+                            implicitHeight: ui.px(28)
+                            radius: ui.r(1.5)
+                            color: ui.tint(0.05)
+                            border.width: 1
+                            border.color: searchField.activeFocus ? ui.tint(0.28) : ui.tint(0.08)
+                            clip: true               // text longer than the box is cut at its edge, never drawn past it
 
-                // the stage: big preview + actions for the selected (or top) plugin
-                DetailPane {
-                    ui: view.ui
-                    inline: true
-                    p: ui.stageItem
-                    visible: view.split
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: 0
-                    Layout.fillHeight: true
+                            Txt { ui: view.ui; anchors.left: parent.left; anchors.leftMargin: ui.px(10); anchors.verticalCenter: parent.verticalCenter; text: "\u2315"; opacity: 0.5; font.pixelSize: ui.fs(14) }
+                            PasteInput {
+                                id: searchField
+                                key: "search"
+                                service: ui.service
+                                anchors.fill: parent
+                                anchors.leftMargin: ui.px(30)
+                                anchors.rightMargin: ui.px(30)
+                                color: ui.fg
+                                font.family: ui.fontName
+                                font.pixelSize: ui.fs(12)
+                                maximumLength: 50
+                                text: ui.query
+                                onTextEdited: view.setSearch(text)
+                                Keys.onEscapePressed: function(e) {
+                                    if (text !== "") { text = ""; view.setSearch(""); e.accepted = true }
+                                    else e.accepted = false
+                                }
+                                Keys.onDownPressed: if (ui.tabName !== "settings") results.focusGrid()
+                                Txt {
+                                    ui: view.ui
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: parent.width
+                                    elide: Text.ElideRight
+                                    visible: searchField.text === "" && !searchField.activeFocus
+                                    text: ui.tabName === "settings" ? "Search settings\u2026" : "Search names, authors, tags\u2026"
+                                    opacity: 0.4
+                                }
+                            }
+                            Txt {
+                                ui: view.ui
+                                anchors.right: parent.right
+                                anchors.rightMargin: ui.px(10)
+                                anchors.verticalCenter: parent.verticalCenter
+                                visible: searchField.text !== ""
+                                text: "\u2715"
+                                opacity: 0.6
+                                MouseArea { anchors.fill: parent; anchors.margins: -6; cursorShape: Qt.PointingHandCursor; onClicked: { searchField.text = ""; view.setSearch("") } }
+                            }
+                        }
+
+                        Btn {
+                            ui: view.ui
+                            visible: ui.tabName !== "settings" && view.filtersAllowed && !view.wide
+                            active: view.filtersOpen
+                            text: ui.filtersActive ? "Filters \u2022" : "Filters"
+                            onClicked: view.filtersOpen = !view.filtersOpen
+                        }
+                        Btn {
+                            ui: view.ui
+                            visible: ui.tabName !== "settings"
+                            text: view.mode === "split" ? "\u25E7 Stage"
+                                : (view.mode === "grid" ? "\u25A6 Cards"
+                                : (view.mode === "list" ? "\u2630 List" : "\u2263 Compact"))
+                            onClicked: view.cycleLayout()
+                        }
+                    }
+
+                    Item {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 0
+
+                        RowLayout {
+                            anchors.fill: parent
+                            spacing: ui.px(12)
+                            visible: ui.tabName !== "settings"
+
+                            FilterSidebar {
+                                ui: view.ui
+                                visible: view.sidebarDocked
+                                Layout.preferredWidth: ui.px(214)
+                                Layout.fillHeight: true
+                            }
+                            Rectangle {
+                                visible: view.sidebarDocked
+                                Layout.fillHeight: true
+                                implicitWidth: 1
+                                color: ui.tint(0.10)
+                            }
+
+                            ResultsView {
+                                id: results
+                                ui: view.ui
+                                Layout.fillWidth: !view.split
+                                Layout.minimumWidth: ui.px(220)
+                                // wide enough for the full stats line without cutting it off
+                                Layout.preferredWidth: view.split
+                                    ? Math.max(ui.px(240), Math.min(ui.px(500), mainArea.width * 0.46)) : ui.px(300)
+                                Layout.maximumWidth: view.split ? Math.max(ui.px(240), Math.min(ui.px(500), mainArea.width * 0.46)) : 100000
+                                Layout.fillHeight: true
+                            }
+
+                            Rectangle {
+                                visible: view.split
+                                Layout.fillHeight: true
+                                implicitWidth: 1
+                                color: ui.tint(0.10)
+                            }
+
+                            // the stage: big preview + actions for the selected (or top) plugin
+                            DetailPane {
+                                ui: view.ui
+                                inline: true
+                                p: ui.stageItem
+                                visible: view.split
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
+                                Layout.fillHeight: true
+                            }
+                        }
+
+                        SettingsView {
+                            id: settingsView
+                            ui: view.ui
+                            anchors.fill: parent
+                            visible: ui.tabName === "settings"
+                        }
+
+                        // filters drawer (narrow windows)
+                        Rectangle {
+                            visible: view.filtersOpen && !view.wide && view.filtersAllowed && ui.tabName !== "settings"
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+                            anchors.left: parent.left
+                            width: Math.min(ui.px(250), parent.width - ui.px(40))
+                            radius: ui.r(2)
+                            color: ui.surface
+                            border.width: 1
+                            border.color: ui.tint(0.16)
+                            clip: true
+                            MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons; onWheel: function(w) { w.accepted = true } }
+                            FilterSidebar {
+                                ui: view.ui
+                                anchors.fill: parent
+                                anchors.margins: ui.px(10)
+                            }
+                        }
+
+                        DetailPane {
+                            ui: view.ui
+                            p: ui.selected
+                            visible: !view.split && ui.selected !== null && ui.tabName !== "settings"
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+                            anchors.right: parent.right
+                            width: Math.min(ui.px(420), parent.width - ui.px(40))
+                        }
+                    }
                 }
             }
-
-            SettingsView {
-                id: settingsView
-                ui: view.ui
-                anchors.fill: parent
-                visible: ui.tabName === "settings"
-            }
-
-            DetailPane {
-                ui: view.ui
-                p: ui.selected
-                visible: !view.split && ui.selected !== null && ui.tabName !== "settings"
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
-                anchors.right: parent.right
-                width: Math.min(ui.px(420), parent.width - ui.px(40))
-            }
-        }
-
         }
 
         // ---- activity log ----
@@ -433,14 +494,13 @@ Item {
             spacing: ui.px(8)
 
             Rectangle {
-                visible: !ui.popped
                 implicitWidth: escLabel.implicitWidth + ui.px(12)
                 implicitHeight: ui.px(18)
                 radius: ui.r(1)
                 color: ui.tint(0.08)
                 Txt { id: escLabel; ui: view.ui; anchors.centerIn: parent; text: "Esc"; font.pixelSize: ui.fs(10); opacity: 0.75 }
             }
-            Txt { ui: view.ui; visible: !ui.popped; text: "close"; font.pixelSize: ui.fs(10); opacity: 0.45 }
+            Txt { ui: view.ui; text: "close"; font.pixelSize: ui.fs(10); opacity: 0.45 }
 
             Txt {
                 ui: view.ui
@@ -480,7 +540,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         visible: ui.confirm !== null
-        radius: ui.radius
+        radius: ui.r(3)
         color: Qt.rgba(ui.surface.r, ui.surface.g, ui.surface.b, 0.85)
         MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons; onWheel: function(w) { w.accepted = true } }
 

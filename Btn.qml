@@ -15,8 +15,8 @@ Rectangle {
     readonly property bool primary: kind === "primary"
     readonly property bool danger: kind === "danger"
 
-    implicitWidth: label.implicitWidth + ui.px(20)
-    implicitHeight: ui.px(28)
+    implicitWidth: label.implicitWidth + ui.px(16)
+    implicitHeight: ui.px(24)
     radius: ui.r(1.5)
     opacity: enabled ? 1.0 : 0.4
     color: primary ? ui.accent

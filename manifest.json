@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.qempexe.omanager",
   "name": "Omanager",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "author": "qempexe",
   "license": "MIT",
   "description": "Plugin manager for the Omarchy bar: browse, filter, install, update and remove plugins from a window.",
@@ -36,12 +36,12 @@
       "cornerRadius": 4,
       "frame": false,
       "fontScale": 100,
-      "surfaceTint": 6,
+      "surfaceTint": 0,
       "showPreviews": true,
-      "windowWidth": 1040,
-      "windowHeight": 700,
+      "windowWidth": 460,
+      "windowHeight": 620,
       "openAs": "panel",
-      "viewMode": "split",
+      "viewMode": "list",
       "columns": "auto",
       "filtersPanel": "left",
       "defaultSource": "community",
@@ -145,8 +145,8 @@
         "min": 0,
         "max": 30,
         "step": 1,
-        "defaultValue": 6,
-        "description": "How much of the accent color washes over the window."
+        "defaultValue": 0,
+        "description": "How much of the accent color washes over the window. 0 keeps it plain, like the other panels."
       },
       {
         "key": "showPreviews",
@@ -159,11 +159,11 @@
         "key": "windowWidth",
         "type": "integer",
         "label": "Window width",
-        "min": 640,
+        "min": 400,
         "max": 1600,
         "step": 20,
-        "defaultValue": 1040,
-        "description": "How wide the manager opens."
+        "defaultValue": 460,
+        "description": "How wide the manager opens. From about 720 it also gets the filter sidebar and the List + stage layout."
       },
       {
         "key": "windowHeight",
@@ -172,7 +172,7 @@
         "min": 420,
         "max": 1100,
         "step": 20,
-        "defaultValue": 700,
+        "defaultValue": 620,
         "description": "How tall the manager opens."
       },
       {
@@ -196,8 +196,8 @@
           "list",
           "compact"
         ],
-        "defaultValue": "split",
-        "description": "List + stage keeps a big preview of the selected plugin beside the list. Cards show screenshots, list fits the most, compact is a dense table-like view."
+        "defaultValue": "list",
+        "description": "List + stage keeps a big preview of the selected plugin beside the list (wide windows only). Cards show screenshots, list fits the most, compact is a dense table-like view."
       },
       {
         "key": "columns",
@@ -222,7 +222,7 @@
           "hidden"
         ],
         "defaultValue": "left",
-        "description": "Hide it for a cleaner look. Search still works."
+        "description": "Hide it for a cleaner look. Search still works. In a narrow window the filters open from a Filters button instead."
       },
       {
         "key": "defaultSource",

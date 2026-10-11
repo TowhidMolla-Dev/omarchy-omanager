@@ -122,13 +122,13 @@ var groups = [
         "key": "surfaceTint",
         "label": "Window tint",
         "kind": "int",
-        "fallback": 6,
+        "fallback": 0,
         "min": 0,
         "max": 30,
         "step": 1,
         "divisor": 1,
         "decimals": 0,
-        "hint": "How much of the accent color washes over the window."
+        "hint": "How much of the accent color washes over the window. 0 keeps it plain, like the other panels."
       },
       {
         "key": "showPreviews",
@@ -146,19 +146,19 @@ var groups = [
         "key": "windowWidth",
         "label": "Window width",
         "kind": "int",
-        "fallback": 1040,
-        "min": 640,
+        "fallback": 460,
+        "min": 400,
         "max": 1600,
         "step": 20,
         "divisor": 1,
         "decimals": 0,
-        "hint": "How wide the manager opens."
+        "hint": "How wide the manager opens. From about 720 it also gets the filter sidebar and the List + stage layout."
       },
       {
         "key": "windowHeight",
         "label": "Window height",
         "kind": "int",
-        "fallback": 700,
+        "fallback": 620,
         "min": 420,
         "max": 1100,
         "step": 20,
@@ -186,7 +186,7 @@ var groups = [
         "key": "viewMode",
         "label": "Layout",
         "kind": "enum",
-        "fallback": "split",
+        "fallback": "list",
         "options": [
           "split",
           "grid",
@@ -199,7 +199,7 @@ var groups = [
           "list": "List",
           "compact": "Compact"
         },
-        "hint": "List + stage keeps a big preview of the selected plugin beside the list. Cards show screenshots, list fits the most, compact is a dense table-like view.",
+        "hint": "List + stage keeps a big preview of the selected plugin beside the list (wide windows only). Cards show screenshots, list fits the most, compact is a dense table-like view.",
         "control": "tiles"
       },
       {
@@ -244,7 +244,7 @@ var groups = [
           "left": "Shown",
           "hidden": "Hidden"
         },
-        "hint": "Hide it for a cleaner look. Search still works."
+        "hint": "Hide it for a cleaner look. Search still works. In a narrow window the filters open from a Filters button instead."
       }
     ]
   },
@@ -538,12 +538,12 @@ var defaults = {
   "cornerRadius": 4,
   "frame": false,
   "fontScale": 100,
-  "surfaceTint": 6,
+  "surfaceTint": 0,
   "showPreviews": true,
-  "windowWidth": 1040,
-  "windowHeight": 700,
+  "windowWidth": 460,
+  "windowHeight": 620,
   "openAs": "panel",
-  "viewMode": "split",
+  "viewMode": "list",
   "columns": "auto",
   "filtersPanel": "left",
   "defaultSource": "community",

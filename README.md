@@ -1,6 +1,6 @@
 # Omanager
 
-A plugin manager for the Omarchy bar. Click the bar button and a window opens; click it again (or press `Esc`) and it closes. Browse the community catalog, filter it every way you can think of, and install, update, enable, disable, or remove plugins without touching a terminal.
+A plugin manager for the Omarchy bar. Click the bar button and a panel opens; click it again and it closes. Browse the community catalog, filter it every way you can think of, and install, update, enable, disable, or remove plugins without touching a terminal.
 
 ![Omanager preview](preview.png)
 
@@ -34,11 +34,13 @@ A plugin manager for the Omarchy bar. Click the bar button and a window opens; c
   - The header's *Pop out* button turns the manager into a real window you can move, resize, and tile.
   - *Dock* puts it back into the bar panel.
   - Filters, selection, and search survive the switch.
+  - The dock and the pop-out are the same panel, so they look identical.
+  - In a narrow window the filters open from a *Filters* button; from about 720 px wide the sidebar is shown.
   - **Settings > Window > Open as** picks which one the bar button opens first.
 - **Layouts**:
-  - *List + stage* — default: compact list on the left, a large preview with actions for the selected plugin on the right.
+  - *List* — default: compact row cards. Installed plugins have an on/off switch.
+  - *List + stage* — wide windows only (about 720 px and up): the list on the left, a large preview with actions for the selected plugin on the right.
   - *Cards* — 1 to 4 columns or automatic.
-  - *List* — plain list.
   - *Compact* — a dense, table-like view with one plugin per row: name, category, author, stats, status, upload age, and install button.
 
   Previews come from the catalog's own thumbnails and full-size images. Compact skips them entirely, so it stays fast on large catalogs.
@@ -99,7 +101,7 @@ In `~/.config/hypr/hyprland.lua`, following the style Omarchy uses:
 o.window({ class = "^org\\.quickshell$", title = "^Omanager$" }, { tag = "+omanager-window" })
 o.window({ tag = "omanager-window" }, { float = true })
 o.window({ tag = "omanager-window" }, { center = true })
-o.window({ tag = "omanager-window" }, { size = { 1180, 760 } })
+o.window({ tag = "omanager-window" }, { size = { 460, 620 } })
 ```
 
 Without rules it still works; it just tiles like any other window.
@@ -140,9 +142,10 @@ Service.qml    catalog download + cache, `omarchy plugin list --json`, action qu
 Model.js       normalising, filtering, sorting, URL/command safety (unit-tested)
 BarWidget.qml  bar button, settings, owns UiState, decides panel vs window
 UiState.qml    all window state (filters, selection, theme helpers, results)
-ManagerView    the whole UI; shown by Panel.qml (bar panel) or PopoutWindow.qml
+ManagerView    the whole UI; shown by Panel.qml (docked popup) or PopoutWindow.qml
 ResultsView    the scrolling grid / list / compact table + empty states
 PluginCard     one plugin in card, list, or compact form
+Sw             the on/off switch
 SettingsView   the Settings tab body: group tabs and the settings
 SettingRow     one setting: tiles, segmented bar, chips, slider, switch, field
 TileArt        the little pictures inside the settings tiles
@@ -158,6 +161,13 @@ python3 tests/test_no_native_text.py  # no TextInput anywhere, paste read stays 
 ```
 
 ## Changelog
+
+### 1.5.0
+
+- **New look for the whole panel**, docked and popped out: one rounded panel with a plain neutral edge, a header card (title, status, Refresh, Pop out / Dock, close), underlined tabs, one content card of rows, and the `Esc` footer. The search box now sits at the top of the content card.
+- **The docked manager is a popup** placed flush against the bar, instead of the shell's own panel frame. `Panel.qml` keeps the contract `BarWidget.qml` uses (`opened`, `open()`, `close()`).
+- **Compact by default.** New defaults: 460 x 620, *List* layout, window tint 0. Narrow windows get a *Filters* drawer; from about 720 px wide the filter sidebar and *List + stage* return. If you changed these before, your saved values still win; use *Reset all* to take the new defaults.
+- **Switches.** Installed plugins and on/off settings use switch. An installed plugin's switch enables or disables it, and enabled plugins get the accent-tinted row.
 
 ### 1.4.1
 
@@ -232,7 +242,7 @@ python3 tests/test_no_native_text.py  # no TextInput anywhere, paste read stays 
 
 The logic in `Model.js` and the manifest/QML consistency are covered by the tests.
 
-The bar widget has been loaded in a live shell; the window, the pop-out, and the layouts have not been run there yet.
+The bar widget has been loaded in a live shell; the 1.5.0 popup (`Panel.qml`), the pop-out, and the layouts have not been run there yet.
 
 Things that are inferred rather than confirmed:
 

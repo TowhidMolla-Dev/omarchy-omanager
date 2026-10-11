@@ -13,9 +13,9 @@ FloatingWindow {
 
     title: "Omanager"
     visible: false
-    color: ui ? ui.surface : Qt.rgba(0.07, 0.07, 0.09, 1)
-    implicitWidth: ui ? ui.cfgSafe.windowWidth : 1040
-    implicitHeight: ui ? ui.cfgSafe.windowHeight : 700
+    color: "transparent"
+    implicitWidth: ui ? ui.cfgSafe.windowWidth : 460
+    implicitHeight: ui ? ui.cfgSafe.windowHeight : 620
 
     Loader {
         anchors.fill: parent
