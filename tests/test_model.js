@@ -3,7 +3,7 @@
 // Model.js starts with the QML-only `.pragma library` line, so strip it before evaluating.
 const fs = require("fs"), path = require("path"), assert = require("assert");
 let src = fs.readFileSync(path.join(__dirname, "..", "Model.js"), "utf8").replace(/^\.pragma.*$/m, "");
-const M = new Function(src + "; return {normalizeCatalog, normalizeStats, applyStats, normalizeInstalled, query, findUpdates, compareVersions, safeRepoUrl, safeImageUrl, safeCatalogUrl, actionArgs, relTime, fmtCount, validHex};")();
+const M = new Function(src + "; return {normalizeCatalog, normalizeStats, applyStats, normalizeInstalled, normalizeVersions, applyVersions, query, findUpdates, compareVersions, safeRepoUrl, safeImageUrl, safeCatalogUrl, actionArgs, relTime, fmtCount, validHex};")();
 
 const DAY = 864e5, now = Date.parse("2026-10-07T12:00:00Z");
 const iso = d => new Date(now - d * DAY).toISOString();
@@ -93,6 +93,34 @@ const ids = r => r.items.map(p => p.id);
   assert.strictEqual(M.compareVersions("1.0", "1.0.0"), 0);
   assert.strictEqual(M.compareVersions("", "1.0"), 0);
   assert.deepStrictEqual(M.findUpdates(cat, inst.map), ["a.old-popular"]);
+})();
+
+(function installedVersions() {
+  // `plugin list --json` carries no version at all, so the installed version is
+  // read from manifest.json and merged in. Without that merge the Updates tab
+  // can never find anything to update.
+  const text = [
+    '["a.old-popular","1.1.0"]',
+    '["omarchy.clock","1"]',
+    '["bad --id","9.9.9"]',
+    '["no.version",""]',
+    'not json at all',
+    '["also.trailing","2.0.0","extra"]',
+  ].join("\n");
+  const v = M.normalizeVersions(text);
+  assert.deepStrictEqual(v, { "a.old-popular": "1.1.0", "omarchy.clock": "1", "also.trailing": "2.0.0" });
+  assert.deepStrictEqual(M.normalizeVersions(""), {}, "an empty scan is not an error");
+  assert.deepStrictEqual(M.normalizeVersions('["x.y","v\n1.0"]'), {}, "a stray newline cannot forge an id");
+
+  const merged = M.applyVersions(inst, v);
+  assert.strictEqual(merged.map["a.old-popular"].version, "1.1.0", "the version on disk wins");
+  assert.strictEqual(merged.map["omarchy.clock"].version, "1");
+  assert.strictEqual(merged.map["me.local-dev"].version, "", "no manifest, no version");
+  assert.strictEqual(inst.map["a.old-popular"].version, "1.0.0", "the installed base is not mutated");
+  assert.strictEqual(inst.list[0], inst.map["a.old-popular"], "the input pair still shares records");
+  assert.strictEqual(merged.list[0], merged.map["a.old-popular"], "the rebuilt pair shares them too");
+  assert.deepStrictEqual(M.findUpdates(cat, merged.map), ["a.old-popular"], "updates now come from both sides");
+  assert.deepStrictEqual(M.applyVersions(null, v), { list: [], map: {} });
 })();
 
 (function commands() {

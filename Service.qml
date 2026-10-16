@@ -37,8 +37,14 @@ Item {
     property real catalogTime: 0                // ms since epoch of the last good download
 
     // ---- installed --------------------------------------------------------
+    // The installed list and the versions on disk arrive from two different
+    // processes; both end up folded into the same { list, map } pair.
+    readonly property string pluginsDir: Quickshell.env("HOME") + "/.config/omarchy/plugins"
     property var installed: []
     property var installedMap: ({})
+    property var installedBase: null            // last parse of `omarchy plugin list --json`
+    property var installedVersions: ({})        // plugin id -> version from its manifest.json
+    property int installedAttempts: 0           // retries while the shell is still coming up
     property bool installedReady: false
     property var updateIds: []
     readonly property int updateCount: updateIds.length
@@ -84,6 +90,31 @@ Item {
     }
     onCatalogChanged: recompute()
     onInstalledMapChanged: recompute()
+
+    // `omarchy plugin list` has no version field, so an installed plugin's
+    // version is read from its manifest.json. The two land at different times,
+    // so both paths lead here and the window always sees one consistent pair.
+    function assembleInstalled() {
+        if (!installedBase) return
+        var r = Model.applyVersions(installedBase, installedVersions)
+        installed = r.list
+        installedMap = r.map
+        installedReady = true
+    }
+    onInstalledVersionsChanged: assembleInstalled()
+
+    // An empty scan while third-party plugins are installed means jq is gone or
+    // the directory moved. Say it once, so "no updates" is never a mystery.
+    property bool warnedNoVersions: false
+    function warnNoVersions() {
+        if (warnedNoVersions || !installedBase) return
+        for (var i = 0; i < installedBase.list.length; i++) {
+            if (installedBase.list[i].builtin) continue
+            warnedNoVersions = true
+            note("Could not read installed plugin versions (is jq installed?)", false)
+            return
+        }
+    }
 
     function stale() {
         return catalogTime === 0 || (Date.now() - catalogTime) > config.refreshHours * 3600000
@@ -227,16 +258,61 @@ Item {
         stdout: StdioCollector {
             id: listOut
             onStreamFinished: {
-                try {
-                    var r = Model.normalizeInstalled(JSON.parse(listOut.text))
-                    root.installed = r.list
-                    root.installedMap = r.map
-                    root.installedReady = true
-                } catch (e) {
-                    root.note("Could not read the installed plugin list", false)
+                var parsed = null
+                try { parsed = JSON.parse(listOut.text) } catch (e) { parsed = null }
+                var r = parsed ? Model.normalizeInstalled(parsed) : null
+                if (!r || r.list.length === 0) {
+                    // `omarchy plugin list` asks the shell over IPC, and the
+                    // shell cannot answer for the first moment after a restart,
+                    // while its own plugins are still loading. Retry briefly
+                    // rather than showing an empty list and no updates.
+                    if (root.installedAttempts < 5) {
+                        root.installedAttempts++
+                        installedRetry.restart()
+                    } else {
+                        root.note("Could not read the installed plugin list", false)
+                    }
+                    return
                 }
+                root.installedAttempts = 0
+                root.installedBase = r
+                root.assembleInstalled()
+                versionScanner.running = true
             }
         }
+    }
+
+    Timer {
+        id: installedRetry
+        interval: 1000
+        repeat: false
+        onTriggered: lister.running = true
+    }
+
+    // Third-party plugins live in ~/.config/omarchy/plugins/<dir>/manifest.json.
+    // The directory name is not always the plugin id, so the id is read from the
+    // manifest itself: one `[id, version]` JSON array per plugin on stdout.
+    // Hidden directories are clone staging areas and backups, never plugins. One
+    // jq per manifest so a half-written file only costs its own line, and the
+    // whole command stays an argument array like every other one here.
+    Process {
+        id: versionScanner
+        running: false
+        command: ["find", root.pluginsDir, "-mindepth", "2", "-maxdepth", "2",
+                  "-name", "manifest.json", "-not", "-path", root.pluginsDir + "/.*",
+                  "-exec", "jq", "--compact-output",
+                  '[(.id // ""), (.version // "")]', "{}", ";"]
+        stdout: StdioCollector {
+            id: versionOut
+            onStreamFinished: {
+                var text = versionOut.text || ""
+                // Nothing read: keep the versions already known rather than
+                // clearing every update the moment a scan comes back empty.
+                if (text.trim() !== "") root.installedVersions = Model.normalizeVersions(text)
+                else root.warnNoVersions()
+            }
+        }
+        onExited: root.assembleInstalled()
     }
 
     // ---- actions ----------------------------------------------------------------

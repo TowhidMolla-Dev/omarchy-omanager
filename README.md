@@ -249,6 +249,7 @@ Things that are inferred rather than confirmed:
 - **Catalog fields**: previews use `previewThumbnail` / `previewImage`, and the listing date reads `listedAt` first (falling back to `addedAt`, `createdAt`, and several other spellings) so the "Newly uploaded" order matches the website.
 - **Last upgraded date**: reads `repositoryUpdatedAt` first, then several other spellings. If "Upgraded" shows "unknown" or looks wrong, adjust the alias list in `normalizePlugin`.
 - **Stats API response shape**: `api.omarchyplugins.com/v1/stats` accepts several shapes. If none matches, hearts / views simply stay empty.
+- **Installed versions**: `omarchy plugin list --json` reports no version at all, so the Updates tab reads each plugin's `manifest.json` under `~/.config/omarchy/plugins/*/` with `jq` (an omarchy dependency, run through `find -exec`). Without `jq` the scan comes back empty, no updates are shown, and the activity log says why.
 - **`FloatingWindow`**: the pop-out comes from Quickshell. It is used by other Omarchy plugins but has not been run here.
 - **CLI flags**: the `--yes` flags on `plugin add` / `plugin remove` and the `plugin enable|disable|update` subcommands are assumed. Remove retries without `--yes` if the first attempt fails.
 

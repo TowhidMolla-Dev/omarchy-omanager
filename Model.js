@@ -257,6 +257,46 @@ function normalizeInstalled(raw) {
     return { list: list, map: map }
 }
 
+// `omarchy plugin list` reports no version, so the installed version comes from
+// each plugin's manifest.json instead: the scanner prints one `[id, version]`
+// JSON array per plugin. That output is untrusted too - id is checked, the
+// version is trimmed and capped.
+function normalizeVersions(text) {
+    var out = {}
+    var lines = str(text).split("\n")
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].trim()
+        if (line === "") continue
+        var pair = null
+        try { pair = JSON.parse(line) } catch (e) { continue }
+        if (!Array.isArray(pair) || pair.length < 2) continue
+        var id = str(pair[0]).trim()
+        var version = str(pair[1]).trim()
+        if (!SAFE_ID.test(id) || version === "") continue
+        out[id] = version.slice(0, 32)
+    }
+    return out
+}
+
+// Fills the installed records with the versions read from disk and rebuilds the
+// id map, giving findUpdates both sides of its comparison. Returns a new
+// { list, map } pair: the records handed in are never mutated.
+function applyVersions(inst, versions) {
+    var list = []
+    var map = {}
+    if (!inst || !Array.isArray(inst.list)) return { list: list, map: map }
+    for (var i = 0; i < inst.list.length; i++) {
+        var src = inst.list[i]
+        var rec = {}
+        for (var k in src) rec[k] = src[k]
+        var onDisk = versions ? versions[rec.id] : undefined
+        if (onDisk) rec.version = onDisk
+        list.push(rec)
+        map[rec.id] = rec
+    }
+    return { list: list, map: map }
+}
+
 function pseudoRecord(rec, category, author) {
     var p = {
         id: rec.id, name: rec.name, description: rec.description, author: author,
