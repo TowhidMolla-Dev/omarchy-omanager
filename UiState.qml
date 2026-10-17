@@ -324,6 +324,12 @@ Item {
 
     function openDetail(p) { selected = p }
 
+    // ---- right-click context menu ----------------------------------------------
+    // { p, x, y } in the window's own coordinates, or null when no menu is up.
+    property var menu: null
+    function openMenu(p, x, y) { menu = null; menu = { p: p, x: x, y: y } }
+    function closeMenu() { menu = null }
+
     function requestAction(kind, p) {
         if (!service) return
         if (kind === "install" && !cfgSafe.allowUnverified && !p.verified) {
@@ -375,6 +381,7 @@ Item {
         } else {
             selected = null
             confirm = null
+            menu = null
             showLog = false
             if (service) service.markSeen()
         }

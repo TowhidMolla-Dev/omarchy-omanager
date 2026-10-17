@@ -25,6 +25,7 @@ Item {
 
     // Esc steps back out of whatever is covering things. True when it did something.
     function stepBack() {
+        if (ui.menu) { ui.closeMenu(); return true }
         if (ui.confirm) { ui.confirm = null; return true }
         if (ui.selected && !split) { ui.selected = null; return true }
         if (filtersOpen) { filtersOpen = false; return true }
@@ -609,5 +610,12 @@ Item {
                 }
             }
         }
+    }
+
+    // ---- right-click menu (over everything, above the confirm dialog) ----
+    ContextMenu {
+        ui: view.ui
+        anchors.fill: parent
+        z: 50
     }
 }

@@ -57,8 +57,16 @@ Item {
             id: area
             anchors.fill: parent
             hoverEnabled: true
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
             cursorShape: Qt.PointingHandCursor
-            onClicked: root.opened()
+            onClicked: function(mouse) {
+                if (mouse.button === Qt.RightButton) {
+                    var pt = area.mapToItem(null, mouse.x, mouse.y)
+                    root.ui.openMenu(root.p, pt.x, pt.y)
+                } else {
+                    root.opened()
+                }
+            }
         }
 
         // ---------- grid layout ----------
