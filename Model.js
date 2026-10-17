@@ -283,7 +283,8 @@ function normalizeScan(text) {
         if (!Array.isArray(row) || row.length < 2) continue
         var id = str(row[0]).trim()
         if (!SAFE_ID.test(id)) continue
-        out[id] = { version: str(row[1]).trim().slice(0, 32), dir: dirNameOf(row[2]) }
+        out[id] = { version: str(row[1]).trim().slice(0, 32), dir: dirNameOf(row[2]),
+                    from: str(row[3]).trim().slice(0, 256) }
     }
     return out
 }
@@ -333,6 +334,7 @@ function applyScan(inst, scan, births) {
         var s = scan ? scan[rec.id] : null
         if (s && s.version) rec.version = s.version
         rec.dir = s ? s.dir : ""
+        rec.clonedFrom = s ? s.from : ""
         rec.installedAt = (s && s.dir && births && births[s.dir] !== undefined) ? births[s.dir] : 0
         list.push(rec)
         map[rec.id] = rec
@@ -525,6 +527,42 @@ function pluginTarget(kind, id, installedMap) {
         if (inst && SAFE_ID.test(str(inst.dir))) return inst.dir
     }
     return id
+}
+
+// ---- plugin sets (profiles) ----------------------------------------------------
+// A set is a list of the installed third-party plugins, each with the repo that
+// would reinstall it: the catalog's address when known, otherwise the manifest's
+// own clonedFrom. Built-in plugins are left out (they ship with Omarchy).
+function buildSet(installedList, catalog) {
+    var repoById = {}
+    for (var i = 0; i < catalog.length; i++) repoById[catalog[i].id] = catalog[i].repo
+    var out = []
+    for (var j = 0; j < installedList.length; j++) {
+        var rec = installedList[j]
+        if (rec.builtin) continue
+        var repo = safeRepoUrl(repoById[rec.id] || rec.clonedFrom || "")
+        out.push({ id: rec.id, name: rec.name, repo: repo || "" })
+    }
+    return out
+}
+
+// What restoring a set would do, as actions ready for Service.perform. Additive:
+// installed-but-off plugins are enabled, missing ones with a known repo are
+// installed, and nothing already present is touched.
+function planRestore(set, installedMap) {
+    var out = []
+    if (!set || !set.plugins) return out
+    for (var i = 0; i < set.plugins.length; i++) {
+        var pl = set.plugins[i]
+        var inst = installedMap ? installedMap[pl.id] : null
+        if (inst) {
+            if (!inst.enabled) out.push({ kind: "enable", id: pl.id, name: pl.name, repo: "" })
+        } else {
+            var repo = safeRepoUrl(pl.repo)
+            if (repo) out.push({ kind: "install", id: pl.id, name: pl.name, repo: repo })
+        }
+    }
+    return out
 }
 
 // What is wrong with the installed set, one finding per problem, for the

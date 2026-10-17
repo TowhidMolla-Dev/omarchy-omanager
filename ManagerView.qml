@@ -22,6 +22,8 @@ Item {
     // what the layout really is right now ("List + stage" needs room)
     readonly property string mode: (ui.viewMode === "split" && !wide) ? "list" : ui.viewMode
     readonly property bool split: mode === "split"
+    // tabs that show the plugin list (not Settings, not Sets)
+    readonly property bool listTab: ui.tabName !== "settings" && ui.tabName !== "sets"
 
     // Esc steps back out of whatever is covering things. True when it did something.
     function stepBack() {
@@ -212,6 +214,7 @@ Item {
                         { key: "installed", label: "Installed", n: ui.service ? ui.service.installed.length : 0 },
                         { key: "updates", label: "Updates", n: ui.service ? ui.service.updateCount : 0 },
                         { key: "saved", label: "Saved", n: ui.service ? Object.keys(ui.service.bookmarks).length : 0 },
+                        { key: "sets", label: "Sets", n: ui.service ? ui.service.sets.length : 0 },
                         { key: "settings", label: "Settings", n: -1 }
                     ]
                     delegate: Item {
@@ -347,14 +350,14 @@ Item {
 
                         Btn {
                             ui: view.ui
-                            visible: ui.tabName !== "settings" && view.filtersAllowed && !view.wide
+                            visible: view.listTab && view.filtersAllowed && !view.wide
                             active: view.filtersOpen
                             text: ui.filtersActive ? "Filters \u2022" : "Filters"
                             onClicked: view.filtersOpen = !view.filtersOpen
                         }
                         Btn {
                             ui: view.ui
-                            visible: ui.tabName !== "settings"
+                            visible: view.listTab
                             text: view.mode === "split" ? "\u25E7 Stage"
                                 : (view.mode === "grid" ? "\u25A6 Cards"
                                 : (view.mode === "list" ? "\u2630 List" : "\u2263 Compact"))
@@ -362,7 +365,7 @@ Item {
                         }
                         Btn {
                             ui: view.ui
-                            visible: ui.tabName !== "settings"
+                            visible: view.listTab
                             active: ui.selectMode
                             text: ui.selectMode ? "Done" : "Select"
                             onClicked: ui.setSelectMode(!ui.selectMode)
@@ -401,7 +404,7 @@ Item {
                         RowLayout {
                             anchors.fill: parent
                             spacing: ui.px(12)
-                            visible: ui.tabName !== "settings"
+                            visible: view.listTab
 
                             FilterSidebar {
                                 ui: view.ui
@@ -454,9 +457,15 @@ Item {
                             visible: ui.tabName === "settings"
                         }
 
+                        SetsView {
+                            ui: view.ui
+                            anchors.fill: parent
+                            visible: ui.tabName === "sets"
+                        }
+
                         // filters drawer (narrow windows)
                         Rectangle {
-                            visible: view.filtersOpen && !view.wide && view.filtersAllowed && ui.tabName !== "settings"
+                            visible: view.filtersOpen && !view.wide && view.filtersAllowed && view.listTab
                             anchors.top: parent.top
                             anchors.bottom: parent.bottom
                             anchors.left: parent.left
@@ -477,7 +486,7 @@ Item {
                         DetailPane {
                             ui: view.ui
                             p: ui.selected
-                            visible: !view.split && ui.selected !== null && ui.tabName !== "settings"
+                            visible: !view.split && ui.selected !== null && view.listTab
                             anchors.top: parent.top
                             anchors.bottom: parent.bottom
                             anchors.right: parent.right
@@ -540,7 +549,7 @@ Item {
                 elide: Text.ElideRight
                 font.pixelSize: ui.fs(10)
                 opacity: 0.65
-                visible: ui.tabName !== "settings"
+                visible: view.listTab
                 color: ui.service && ui.service.catalogState === "stale" ? ui.warn : ui.fg
                 text: {
                     if (!ui.service) return ""
@@ -563,7 +572,7 @@ Item {
                 text: settingsView.changed === 0 ? "All settings are at their defaults"
                     : settingsView.changed + (settingsView.changed === 1 ? " setting differs" : " settings differ") + " from the defaults"
             }
-            Btn { ui: view.ui; visible: ui.tabName !== "settings"; text: ui.showLog ? "Hide log" : "Log"; implicitHeight: ui.px(22); active: ui.showLog; onClicked: ui.showLog = !ui.showLog }
+            Btn { ui: view.ui; visible: view.listTab; text: ui.showLog ? "Hide log" : "Log"; implicitHeight: ui.px(22); active: ui.showLog; onClicked: ui.showLog = !ui.showLog }
             Txt { ui: view.ui; visible: ui.tabName === "settings"; text: "Changes apply instantly"; font.pixelSize: ui.fs(10); opacity: 0.45 }
         }
     }

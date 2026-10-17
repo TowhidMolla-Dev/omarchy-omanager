@@ -6,7 +6,7 @@ A plugin manager for the Omarchy bar. Click the bar button and a panel opens; cl
 
 ## Features
 
-- **Tabs**: Browse, Installed, Updates (with *Update all*), Saved, Settings.
+- **Tabs**: Browse, Installed, Updates (with *Update all*), Saved, Sets, Settings.
 - **Stats**: stars, hearts, views, and install-command copies show on every card, list row, and compact row, and in the detail / stage pane.
 - **Sort**:
   - newly uploaded
@@ -30,6 +30,7 @@ A plugin manager for the Omarchy bar. Click the bar button and a panel opens; cl
 - **Changelog**: the detail pane lists an installed plugin's recent commits (`git log`, read-only). When an update is pending, **Incoming** fetches and shows exactly what the update would bring in, so you can see the changes before you update.
 - **Right-click a plugin** for a short menu of what applies to it (update/install, enable/disable, save, open folder or repository, copy install command, details, remove).
 - **Batch select**: **Select** turns cards into checkboxes and shows an action bar to **Update / Enable / Disable / Save / Remove** everything picked at once (only the applicable ones act). Removals still ask to confirm.
+- **Plugin sets** (Sets tab): name a snapshot of what you have installed, then **Restore** it later to re-enable what is off and reinstall what is missing (using the plugin's repo, so it works on a fresh machine). Nothing already present is removed or downgraded, so restoring is always safe.
 - **Filters**:
   - community / built-in / all
   - category
@@ -173,6 +174,16 @@ python3 tests/test_no_native_text.py  # no TextInput anywhere, paste read stays 
 ```
 
 ## Changelog
+
+### Unreleased
+
+- **Installed-tab upgrades**: a *Newly installed* sort (by the on-disk directory's birth time), and a **Health** view that flags plugins that need attention — installed under a different folder name than their id, not a git checkout, missing a manifest, or missing from the catalog.
+- **Update and remove by folder name.** `omarchy plugin update` and `remove` resolve the on-disk directory, not the manifest id; the manager now passes the directory, so a plugin cloned into a differently named folder updates and removes correctly. (Built-in and enable/disable still use the id.)
+- **Changelog in the detail pane**: recent commits for an installed plugin, plus the exact commits an available update would bring in.
+- **Right-click** any plugin for a short, context-aware menu.
+- **Batch select**: pick several plugins and Update / Enable / Disable / Save / Remove them together.
+- **Plugin sets**: save the current install as a named set and restore it on another machine.
+- **Faster search**: the query pool is cached across keystrokes instead of rebuilt each time.
 
 ### 1.5.0
 

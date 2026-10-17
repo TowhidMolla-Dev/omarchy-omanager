@@ -135,7 +135,7 @@ Item {
     }
 
     // ---- filter state ----------------------------------------------------------
-    property string tabName: "browse"        // browse | installed | updates | saved | settings
+    property string tabName: "browse"        // browse | installed | updates | saved | sets | settings
     property string query: ""
     property string settingsFilter: ""      // the header search while the Settings tab is open
     property string source: "community"
@@ -283,6 +283,22 @@ Item {
         return parts.join("  \u00b7  ")
     }
     function healthFor(p) { return service ? service.healthFor(p.id) : null }
+
+    // ---- plugin sets (profiles) -------------------------------------------------
+    readonly property var sets: service ? service.sets : []
+    readonly property int setCount: sets.length
+    function saveSet(name) { return service ? service.saveSet(name) : false }
+    function restoreSet(i) { return service ? service.restoreSet(i) : 0 }
+    function deleteSet(i) { if (service) service.deleteSet(i) }
+    // How many plugins in a set are reinstatable (have a repo) — the rest only get
+    // enabled if already present. Shown as a hint in the Sets tab.
+    function setRepos(i) {
+        var s = sets[i]
+        if (!s || !s.plugins) return 0
+        var n = 0
+        for (var k = 0; k < s.plugins.length; k++) if (s.plugins[k].repo !== "") n++
+        return n
+    }
 
     Timer { id: recomputeTimer; interval: 70; onTriggered: root.recompute() }
     Timer { interval: 60000; repeat: true; running: root.opened; onTriggered: root.now = Date.now() }

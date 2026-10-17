@@ -55,6 +55,9 @@ Item {
     property var bookmarks: ({})
     property real lastSeen: 0                   // end of the previous visit
     property real prevVisit: 0                  // what "New since last visit" compares against
+    // Saved plugin sets (profiles): a named snapshot of the installed plugins,
+    // each with the repo needed to reinstall it. Persisted with the bookmarks.
+    property var sets: []
 
     // ---- activity ---------------------------------------------------------
     property var queue: []
@@ -322,7 +325,7 @@ Item {
         command: ["find", root.pluginsDir, "-mindepth", "2", "-maxdepth", "2",
                   "-name", "manifest.json", "-not", "-path", root.pluginsDir + "/.*",
                   "-exec", "jq", "--compact-output",
-                  '[(.id // ""), (.version // ""), (input_filename)]', "{}", ";"]
+                  '[(.id // ""), (.version // ""), (input_filename), (.omarchy.clonedFrom // "")]', "{}", ";"]
         stdout: StdioCollector {
             id: versionOut
             onStreamFinished: {
@@ -587,9 +590,45 @@ Item {
         saveState()
     }
 
+    // ---- plugin sets (profiles) --------------------------------------------------------
+    // Snapshot the currently installed third-party plugins. Each entry keeps a repo
+    // so a later restore can reinstall what is missing: the catalog's address, or
+    // the manifest's own clonedFrom for a local/unpublished plugin.
+    function saveSet(name) {
+        var label = String(name === undefined || name === null ? "" : name).trim().slice(0, 60)
+        if (label === "") return false
+        var plugins = Model.buildSet(installed, catalog)
+        if (plugins.length === 0) return false
+        var next = sets.slice()
+        next.push({ name: label, savedAt: Date.now(), plugins: plugins })
+        sets = next
+        saveState()
+        return true
+    }
+
+    // Additive restore: enable what is installed but off, install what is missing
+    // (when a repo is known). Nothing already installed is removed or downgraded.
+    function restoreSet(index) {
+        var s = sets[index]
+        if (!s) return 0
+        var plan = Model.planRestore(s, installedMap)
+        for (var i = 0; i < plan.length; i++)
+            perform(plan[i].kind, plan[i].id, plan[i].name, plan[i].repo)
+        return plan.length
+    }
+
+    function deleteSet(index) {
+        if (index < 0 || index >= sets.length) return
+        var next = sets.slice()
+        next.splice(index, 1)
+        sets = next
+        saveState()
+    }
+
     function saveState() {
         stateFile.setText(JSON.stringify({
-            bookmarks: Object.keys(bookmarks), lastSeen: lastSeen, catalogTime: catalogTime
+            bookmarks: Object.keys(bookmarks), lastSeen: lastSeen, catalogTime: catalogTime,
+            sets: sets
         }, null, 2) + "\n")
     }
 
@@ -615,6 +654,7 @@ Item {
                 root.bookmarks = b
                 root.lastSeen = Number(s.lastSeen) || 0
                 root.prevVisit = root.lastSeen
+                root.sets = Array.isArray(s.sets) ? s.sets : []
                 if (root.catalogTime === 0) root.catalogTime = Number(s.catalogTime) || 0
             } catch (e) { }
         }
