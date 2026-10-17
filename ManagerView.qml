@@ -615,8 +615,8 @@ Item {
                     wrapMode: Text.Wrap
                     font.pixelSize: ui.fs(15)
                     font.weight: Font.DemiBold
-                    text: !plug ? "" : (dlg.n > 1 ? dlg.verb + " " + dlg.n + " plugins?"
-                                                  : dlg.verb + " " + dlg.plug.name + "?")
+                    text: !dlg.plug ? "" : (dlg.n > 1 ? dlg.verb + " " + dlg.n + " plugins?"
+                                                     : dlg.verb + " " + dlg.plug.name + "?")
                 }
                 Txt {
                     ui: view.ui

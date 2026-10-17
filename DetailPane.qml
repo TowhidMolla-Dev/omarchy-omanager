@@ -10,7 +10,7 @@ Rectangle {
     property var p: null
     property bool inline: false          // true = the permanent stage, false = slide-in overlay
 
-    readonly property var st: p ? ui.stateOf(p) : ({ installed: false, enabled: false, update: false, version: "" })
+    readonly property var st: p ? ui.stateOf(p) : ({ installed: false, enabled: false, update: false, version: "", dir: "", installedAt: 0 })
     readonly property bool working: p && ui.service && ui.service.busyIds[p.id] !== undefined
     readonly property bool saved: p && ui.service && ui.service.bookmarks[p.id] === true
     readonly property string cmd: p ? Model.installCommand(p) : ""
