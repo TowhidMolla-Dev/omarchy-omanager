@@ -3,7 +3,7 @@
 // Model.js starts with the QML-only `.pragma library` line, so strip it before evaluating.
 const fs = require("fs"), path = require("path"), assert = require("assert");
 let src = fs.readFileSync(path.join(__dirname, "..", "Model.js"), "utf8").replace(/^\.pragma.*$/m, "");
-const M = new Function(src + "; return {normalizeCatalog, normalizeStats, applyStats, normalizeInstalled, normalizeScan, normalizeBirths, applyScan, query, findUpdates, compareVersions, safeRepoUrl, safeImageUrl, safeCatalogUrl, actionArgs, relTime, fmtCount, validHex};")();
+const M = new Function(src + "; return {normalizeCatalog, normalizeStats, applyStats, normalizeInstalled, normalizeScan, normalizeBirths, normalizeDirSet, applyScan, healthOf, pluginTarget, query, findUpdates, compareVersions, safeRepoUrl, safeImageUrl, safeCatalogUrl, actionArgs, relTime, fmtCount, validHex};")();
 
 const DAY = 864e5, now = Date.parse("2026-10-07T12:00:00Z");
 const iso = d => new Date(now - d * DAY).toISOString();
@@ -153,6 +153,59 @@ const ids = r => r.items.map(p => p.id);
   const merged = M.applyScan(inst, s, births);
   const run = o => ids(M.query(cat, merged.list, merged.map, { ...base, source: "all", status: "installed", ...o }));
   assert.deepStrictEqual(run({ sort: "installed" }), ["omarchy.clock", "a.old-popular", "me.local-dev"], "newest install first, unknown last");
+})();
+
+(function health() {
+  // Health reads the on-disk picture and reports what an update would trip on.
+  const inst2 = M.normalizeInstalled([
+    { id: "a.old-popular", enabled: true },
+    { id: "omarchy.clock", enabled: true },
+    { id: "renamed.one", enabled: true },
+  ]);
+  const s = M.normalizeScan([
+    '["a.old-popular","1.0.0","/p/a.old-popular/manifest.json"]',
+    '["omarchy.clock","1","/p/omarchy.clock/manifest.json"]',
+    '["renamed.one","2.0.0","/p/folder-name/manifest.json"]',
+  ].join("\n"));
+  const births = { "a.old-popular": 1, "omarchy.clock": 2, "folder-name": 3, "junk-dir": 4 };
+  const merged = M.applyScan(inst2, s, births);
+  const catMap = { "a.old-popular": true, "omarchy.clock": true };
+  const git = M.normalizeDirSet("/p/folder-name\n");           // only renamed.one is a checkout
+  const h = M.healthOf(merged.list, births, git, catMap);
+  const kinds = h.map(x => x.id + ":" + x.kind).sort();
+  assert.ok(kinds.includes("a.old-popular:nogit"), "a plugin without .git is flagged");
+  assert.ok(kinds.includes("renamed.one:renamed"), "a dir != id is flagged");
+  assert.ok(kinds.includes("renamed.one:orphan"), "renamed.one is not in the catalog");
+  assert.ok(kinds.includes("junk-dir:nomanifest"), "a dir with no readable manifest is flagged");
+  assert.ok(!kinds.some(k => k.startsWith("omarchy.clock")), "a healthy builtin is not flagged");
+  assert.ok(!kinds.some(k => k.startsWith("a.old-popular:orphan")), "a cataloged plugin is not an orphan");
+
+  assert.deepStrictEqual(M.normalizeDirSet("/p/one\nnope name\n"), { one: true });
+})();
+
+(function targetDirectory() {
+  // omarchy plugin update/remove resolve $PLUGINS_DIR/<name>, and the name is the
+  // directory, not the manifest id. A renamed plugin must be updated by its dir.
+  const merged = M.applyScan(inst, M.normalizeScan('["a.old-popular","1","/p/folder-name/manifest.json"]'), {});
+  assert.strictEqual(M.pluginTarget("update", "a.old-popular", merged.map), "folder-name");
+  assert.strictEqual(M.pluginTarget("remove", "a.old-popular", merged.map), "folder-name");
+  assert.strictEqual(M.pluginTarget("enable", "a.old-popular", merged.map), "a.old-popular", "enable uses the id");
+  assert.strictEqual(M.pluginTarget("update", "x", {}), "x", "no dir known, id stands");
+  assert.deepStrictEqual(M.actionArgs("update", M.pluginTarget("update", "a.old-popular", merged.map), "", {}).argv,
+    ["omarchy", "plugin", "update", "folder-name", "--yes"]);
+})();
+
+(function issuesStatus() {
+  // me.local-dev is installed but not in the catalog, so it is the one finding
+  // here; the "Needs attention" status filters the list to exactly those.
+  const s = M.normalizeScan('["a.old-popular","1.0.0","/p/a.old-popular/manifest.json"]');
+  const merged = M.applyScan(inst, s, { "a.old-popular": 1 });
+  const h = M.healthOf(merged.list, {}, { "a.old-popular": true }, { "a.old-popular": true });
+  assert.deepStrictEqual(h.map(f => f.id), ["me.local-dev"]);
+  const set = {};
+  for (const f of h) set[f.id] = true;
+  const got = ids(M.query(cat, merged.list, merged.map, { ...base, source: "all", status: "issues", healthSet: set }));
+  assert.deepStrictEqual(got, ["me.local-dev"]);
 })();
 
 (function commands() {

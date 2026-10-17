@@ -21,6 +21,12 @@ A plugin manager for the Omarchy bar. Click the bar button and a panel opens; cl
   - **newly installed** (Installed tab only: the moment each plugin landed on disk, newest first)
 
   The Installed tab's sort list also offers **Newly installed**, which reads each plugin directory's birth time (falling back to its modification time on filesystems that don't record one). Everything else is offered there too.
+- **Health** (Installed tab): flags installed plugins that need attention and adds a **Needs attention** status to filter the list to them:
+  - installed in a folder whose name differs from its id
+  - not a git checkout, so `omarchy plugin update` cannot touch it
+  - not in the catalog (local or unpublished)
+  - a plugin directory with no readable `manifest.json`
+  The detail pane shows the exact problem and an **Open folder** button. Updates and removals always run against the real folder name, so a plugin in a differently named folder still updates and removes correctly.
 - **Filters**:
   - community / built-in / all
   - category
@@ -254,6 +260,7 @@ Things that are inferred rather than confirmed:
 - **Stats API response shape**: `api.omarchyplugins.com/v1/stats` accepts several shapes. If none matches, hearts / views simply stay empty.
 - **Installed versions**: `omarchy plugin list --json` reports no version at all, so the Updates tab reads each plugin's `manifest.json` under `~/.config/omarchy/plugins/*/` with `jq` (an omarchy dependency, run through `find -exec`). Without `jq` the scan comes back empty, no updates are shown, and the activity log says why.
 - **Install time**: not in the manifest either, so the Installed tab's **Newly installed** sort takes each plugin directory's birth time from `stat` (`%W`, falling back to mtime `%Y` on filesystems that don't record birth time). Directories with no readable time sort last.
+- **Update/remove by folder**: `omarchy plugin update` and `omarchy plugin remove` resolve `~/.config/omarchy/plugins/<name>`, where `<name>` is the folder, not the manifest id. A plugin installed in a folder named differently from its id (a manual clone) is updated and removed by its folder name; enable/disable still use the id.
 - **`FloatingWindow`**: the pop-out comes from Quickshell. It is used by other Omarchy plugins but has not been run here.
 - **CLI flags**: the `--yes` flags on `plugin add` / `plugin remove` and the `plugin enable|disable|update` subcommands are assumed. Remove retries without `--yes` if the first attempt fails.
 

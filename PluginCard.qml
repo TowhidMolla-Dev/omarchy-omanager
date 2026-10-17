@@ -18,6 +18,7 @@ Item {
     signal opened()
 
     readonly property var st: ui.stateOf(p)
+    readonly property var health: ui.healthFor(p)
     readonly property bool on: st.installed && st.enabled
     readonly property bool busy: !!(ui.service && ui.service.busyIds[p.id])
     function toggleEnabled() { ui.requestAction(st.enabled ? "disable" : "enable", p) }
@@ -138,6 +139,13 @@ Item {
                         text: root.narrow ? "\u2713" : "\u2713 Verified"
                         color: ui.good
                         font.pixelSize: ui.fs(9)
+                    }
+                    Txt {
+                        ui: root.ui
+                        visible: root.health !== null
+                        text: "\u26A0"
+                        color: ui.warn
+                        font.pixelSize: ui.fs(11)
                     }
                     Txt {
                         ui: root.ui
@@ -269,6 +277,7 @@ Item {
                     spacing: ui.px(6)
                     Txt { ui: root.ui; Layout.fillWidth: true; text: p.name; font.pixelSize: ui.fs(12); font.weight: Font.DemiBold; elide: Text.ElideRight }
                     Txt { ui: root.ui; visible: p.verified; text: "\u2713"; color: ui.good; font.pixelSize: ui.fs(11) }
+                    Txt { ui: root.ui; visible: root.health !== null; text: "\u26A0"; color: ui.warn; font.pixelSize: ui.fs(11) }
                     Txt { ui: root.ui; visible: root.isNew; text: "NEW"; color: ui.accent; font.pixelSize: ui.fs(9); font.weight: Font.Bold }
                     Txt { ui: root.ui; visible: root.st.update; text: "UPDATE"; color: ui.warn; font.pixelSize: ui.fs(9); font.weight: Font.Bold }
                 }
@@ -381,6 +390,14 @@ Item {
                 visible: p.verified
                 text: "\u2713"
                 color: ui.good
+                font.pixelSize: ui.fs(11)
+            }
+
+            Txt {
+                ui: root.ui
+                visible: root.health !== null
+                text: "\u26A0"
+                color: ui.warn
                 font.pixelSize: ui.fs(11)
             }
 

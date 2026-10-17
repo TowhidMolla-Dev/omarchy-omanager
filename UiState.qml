@@ -238,11 +238,11 @@ Item {
             query: query, source: source, category: category, tags: tags,
             verifiedOnly: verifiedOnly, hideInstalled: hideInstalled, status: status,
             scope: scope, days: days, sort: sortKey, now: now, since: service.prevVisit,
-            bookmarks: service.bookmarks, updateSet: updateSet
+            bookmarks: service.bookmarks, updateSet: updateSet, healthSet: healthSet
         }
         if (t === "installed") {
             o.source = "all"; o.hideInstalled = false
-            o.status = (status === "enabled" || status === "disabled") ? status : "installed"
+            o.status = (status === "enabled" || status === "disabled" || status === "issues") ? status : "installed"
         } else if (t === "updates") {
             o.source = "all"; o.hideInstalled = false; o.status = "updates"
         } else if (t === "saved") {
@@ -261,6 +261,28 @@ Item {
         return m
     }
 
+    // ---- health (Installed tab) ------------------------------------------------
+    readonly property int healthCount: service ? service.healthCount : 0
+    readonly property var healthSet: {
+        var m = ({})
+        var h = service ? service.health : []
+        for (var i = 0; i < h.length; i++) m[h[i].id] = true
+        return m
+    }
+    readonly property string healthSummary: {
+        if (!service) return ""
+        var c = {}
+        var h = service.health
+        for (var i = 0; i < h.length; i++) c[h[i].kind] = (c[h[i].kind] || 0) + 1
+        var parts = []
+        if (c.renamed) parts.push(c.renamed + " in a differently named folder")
+        if (c.nogit) parts.push(c.nogit + " not git-managed")
+        if (c.orphan) parts.push(c.orphan + " not in the catalog")
+        if (c.nomanifest) parts.push(c.nomanifest + " without a manifest")
+        return parts.join("  \u00b7  ")
+    }
+    function healthFor(p) { return service ? service.healthFor(p.id) : null }
+
     Timer { id: recomputeTimer; interval: 70; onTriggered: root.recompute() }
     Timer { interval: 60000; repeat: true; running: root.opened; onTriggered: root.now = Date.now() }
 
@@ -275,6 +297,7 @@ Item {
     onDaysChanged: recomputeTimer.restart()
     onSortKeyChanged: recomputeTimer.restart()
     onUpdateSetChanged: recomputeTimer.restart()
+    onHealthSetChanged: recomputeTimer.restart()
     onServiceChanged: recomputeTimer.restart()
 
     Connections {
@@ -283,6 +306,7 @@ Item {
         function onCatalogChanged() { recomputeTimer.restart() }
         function onInstalledMapChanged() { recomputeTimer.restart() }
         function onBookmarksChanged() { recomputeTimer.restart() }
+        function onHealthChanged() { recomputeTimer.restart() }
     }
 
     // ---- item state / actions ---------------------------------------------------------

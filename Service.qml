@@ -45,6 +45,7 @@ Item {
     property var installedBase: null            // last parse of `omarchy plugin list --json`
     property var installedScan: ({})            // plugin id -> { version, dir } from its manifest.json
     property var installedBirths: ({})          // plugin dir -> install time (ms), from stat
+    property var gitDirs: ({})                  // plugin dir -> true, the ones that are git checkouts
     property int installedAttempts: 0           // retries while the shell is still coming up
     property bool installedReady: false
     property var updateIds: []
@@ -91,6 +92,21 @@ Item {
     }
     onCatalogChanged: recompute()
     onInstalledMapChanged: recompute()
+
+    // ---- health (Installed tab) -------------------------------------------
+    readonly property var catalogIdSet: {
+        var m = ({})
+        for (var i = 0; i < catalog.length; i++) m[catalog[i].id] = true
+        return m
+    }
+    readonly property var health: Model.healthOf(installed, installedBirths, gitDirs, catalogIdSet)
+    readonly property int healthCount: health.length
+    readonly property var healthMap: {
+        var m = ({})
+        for (var i = 0; i < health.length; i++) m[health[i].id] = health[i]
+        return m
+    }
+    function healthFor(id) { return healthMap[id] || null }
 
     // `omarchy plugin list` has no version field, so an installed plugin's
     // version, directory and install time all come from a scan of its
@@ -282,6 +298,7 @@ Item {
                 root.assembleInstalled()
                 versionScanner.running = true
                 birthScanner.running = true
+                gitScanner.running = true
             }
         }
     }
@@ -338,9 +355,25 @@ Item {
         onExited: root.assembleInstalled()
     }
 
+    // Which plugin directories are git checkouts. Only those can be updated by
+    // `omarchy plugin update`; the rest are surfaced under Health. `%h` prints
+    // the directory that holds each .git.
+    Process {
+        id: gitScanner
+        running: false
+        command: ["find", root.pluginsDir, "-mindepth", "2", "-maxdepth", "2",
+                  "-name", ".git", "-type", "d", "-printf", "%h\n"]
+        stdout: StdioCollector {
+            id: gitOut
+            onStreamFinished: root.gitDirs = Model.normalizeDirSet(gitOut.text || "")
+        }
+    }
+
     // ---- actions ----------------------------------------------------------------
     function perform(kind, id, name, repoUrl) {
-        var built = Model.actionArgs(kind, id, repoUrl, config)
+        // update/remove act on the on-disk directory, which can differ from the id.
+        var target = Model.pluginTarget(kind, id, installedMap)
+        var built = Model.actionArgs(kind, target, repoUrl, config)
         if (!built) {
             note("Can't " + kind + " " + name + ": missing or unsafe " + (kind === "install" ? "repository address" : "plugin id"), false)
             return false
@@ -459,6 +492,14 @@ Item {
         var u = Model.safeWebUrl(url)
         if (u === "") return
         opener.command = ["xdg-open", u]
+        opener.running = true
+    }
+    // Reveal an installed plugin's directory in the file manager. The name comes
+    // from the filesystem, but it is re-checked before it is used as a path.
+    function openPluginDir(dir) {
+        var d = "" + dir
+        if (!/^[A-Za-z0-9._-]{1,128}$/.test(d)) return
+        opener.command = ["xdg-open", pluginsDir + "/" + d]
         opener.running = true
     }
     Process { id: opener; running: false }

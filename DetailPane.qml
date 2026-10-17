@@ -14,6 +14,7 @@ Rectangle {
     readonly property bool working: p && ui.service && ui.service.busyIds[p.id] !== undefined
     readonly property bool saved: p && ui.service && ui.service.bookmarks[p.id] === true
     readonly property string cmd: p ? Model.installCommand(p) : ""
+    readonly property var health: p ? ui.healthFor(p) : null
 
     color: inline ? "transparent" : ui.surface
     border.width: inline ? 0 : 1
@@ -74,6 +75,14 @@ Rectangle {
                 Txt { ui: root.ui; visible: root.p && !root.p.verified && !root.p.builtin && !root.p.local; text: "Unverified"; color: ui.warn }
                 Txt { ui: root.ui; visible: root.st.installed; text: root.st.enabled ? "\u25CF Enabled" : "\u25CB Disabled" }
                 Txt { ui: root.ui; visible: root.st.update; text: "Update: v" + root.st.version + " \u2192 v" + (root.p ? root.p.version : ""); color: ui.warn }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                visible: root.health !== null
+                spacing: ui.px(6)
+                Txt { ui: root.ui; text: "\u26A0"; color: ui.warn }
+                Txt { ui: root.ui; Layout.fillWidth: true; text: root.health ? root.health.text : ""; color: ui.warn; wrapMode: Text.Wrap }
             }
 
             // preview: 16:9, the large image; falls back to the thumbnail, then an initial
@@ -160,6 +169,11 @@ Rectangle {
                     visible: root.p && root.p.repo !== ""
                     onClicked: ui.service.openUrl(root.p.repo)
                 }
+                Btn {
+                    ui: root.ui; text: "Open folder"
+                    visible: root.st.installed && root.st.dir !== ""
+                    onClicked: ui.service.openPluginDir(root.st.dir)
+                }
             }
 
             Txt {
@@ -191,6 +205,24 @@ Rectangle {
                 Txt { ui: root.ui; text: root.p ? Model.fmtCount(root.p.copies) : "" }
                 Txt { ui: root.ui; text: "Id"; opacity: 0.5 }
                 Txt { ui: root.ui; Layout.fillWidth: true; text: root.p ? root.p.id : ""; elide: Text.ElideRight }
+            }
+
+            // Install facts: shown for any installed plugin, including built-in and
+            // local ones the numbers above skip. The folder row only appears when it
+            // differs from the id, which is the case an update has to get right.
+            GridLayout {
+                Layout.fillWidth: true
+                columns: 2
+                columnSpacing: ui.px(12)
+                rowSpacing: ui.px(4)
+                visible: root.st.installed
+
+                Txt { ui: root.ui; visible: root.p && (root.p.local || root.p.builtin); text: "Id"; opacity: 0.5 }
+                Txt { ui: root.ui; visible: root.p && (root.p.local || root.p.builtin); Layout.fillWidth: true; text: root.p ? root.p.id : ""; elide: Text.ElideRight }
+                Txt { ui: root.ui; visible: root.st.dir !== "" && (!root.p || root.st.dir !== root.p.id); text: "Folder"; opacity: 0.5 }
+                Txt { ui: root.ui; visible: root.st.dir !== "" && (!root.p || root.st.dir !== root.p.id); Layout.fillWidth: true; text: root.st.dir; elide: Text.ElideRight; color: ui.warn }
+                Txt { ui: root.ui; visible: root.st.installedAt > 0; text: "Installed"; opacity: 0.5 }
+                Txt { ui: root.ui; visible: root.st.installedAt > 0; Layout.fillWidth: true; text: root.st.installedAt > 0 ? Model.relTime(root.st.installedAt, ui.now) : "" }
             }
 
             Flow {

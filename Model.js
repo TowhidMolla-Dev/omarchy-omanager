@@ -306,6 +306,18 @@ function normalizeBirths(text) {
     return out
 }
 
+// A set of directory names, one path per line (from `find ... -printf '%h\n'`).
+// Used for the list of directories that hold a .git. Plain names only.
+function normalizeDirSet(text) {
+    var out = {}
+    var lines = str(text).split("\n")
+    for (var i = 0; i < lines.length; i++) {
+        var dir = lines[i].trim().replace(/\/+$/, "").split("/").pop()
+        if (/^[A-Za-z0-9._-]{1,128}$/.test(dir)) out[dir] = true
+    }
+    return out
+}
+
 // Folds the on-disk scan into the installed records and rebuilds the id map:
 // `version` feeds findUpdates, `dir` is what an update runs against, and
 // `installedAt` (from the birth scan) feeds the "Newly installed" sort. Returns
@@ -410,6 +422,7 @@ function statusOk(p, status, ctx) {
     case "disabled": return !!inst && !inst.enabled
     case "updates": return !!ctx.updateSet[p.id]
     case "saved": return !!ctx.bookmarks[p.id]
+    case "issues": return !!ctx.healthSet[p.id]
     case "new": return p.addedAt > ctx.since
     default: return true
     }
@@ -451,7 +464,7 @@ function countMap(list, field) {
 //       scope, days, sort, now, since, bookmarks, updateSet }
 function query(catalog, installedList, installedMap, st) {
     var ctx = { installedMap: installedMap, updateSet: st.updateSet || {}, bookmarks: st.bookmarks || {},
-                since: st.since || 0 }
+                healthSet: st.healthSet || {}, since: st.since || 0 }
     var all = pool(catalog, installedList, installedMap, st.source)
     var toks = tokens(st.query)
     var cutoff = st.days > 0 ? (st.now || Date.now()) - st.days * DAY : 0
@@ -500,6 +513,49 @@ function actionArgs(kind, id, repo, cfg) {
 
 function installCommand(p) {
     return p.repo ? "omarchy plugin add " + p.repo + " --enable" : ""
+}
+
+// `omarchy plugin update` and `remove` resolve "$PLUGINS_DIR/<name>", so the name
+// they need is the on-disk directory, which is not always the manifest id (a
+// manually cloned plugin keeps the clone's folder name). When the directory is
+// known it is preferred; otherwise the id is passed as before.
+function pluginTarget(kind, id, installedMap) {
+    if ((kind === "update" || kind === "remove") && installedMap) {
+        var inst = installedMap[id]
+        if (inst && SAFE_ID.test(str(inst.dir))) return inst.dir
+    }
+    return id
+}
+
+// What is wrong with the installed set, one finding per problem, for the
+// Installed tab's Health view. Read-only: records come from applyScan (so they
+// carry `dir`), the directory list from the birth scan, and the set of git
+// checkouts from the .git scan.
+function healthOf(installedList, births, gitDirs, catalogMap) {
+    var out = []
+    var known = {}
+    function push(id, dir, name, kind, text) {
+        out.push({ id: id, dir: dir || "", name: name || id, kind: kind, text: text })
+    }
+    for (var i = 0; i < installedList.length; i++) {
+        var rec = installedList[i]
+        var dir = rec.dir || ""
+        if (dir) known[dir] = true
+        if (rec.builtin) continue
+        if (dir && dir !== rec.id)
+            push(rec.id, dir, rec.name, "renamed", "Installed in '" + dir + "', not '" + rec.id + "'")
+        if (dir && gitDirs && !gitDirs[dir])
+            push(rec.id, dir, rec.name, "nogit", "Not a git checkout: omarchy cannot update it")
+        if (!catalogMap || !catalogMap[rec.id])
+            push(rec.id, dir, rec.name, "orphan", "Not in the catalog (local or unpublished)")
+    }
+    if (births) {
+        for (var d in births) {
+            if (known[d]) continue
+            push(d, d, d, "nomanifest", "No readable manifest.json")
+        }
+    }
+    return out
 }
 
 // ---- display helpers -----------------------------------------------------------
