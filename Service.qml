@@ -504,6 +504,74 @@ Item {
     }
     Process { id: opener; running: false }
 
+    // ---- git history (detail pane changelog) -------------------------------------------
+    // Read-only: the recent commits of an installed plugin, or (after a fetch) the
+    // commits an update would bring in. Results are kept per plugin id.
+    property var history: ({})                  // id -> { state, incoming, lines[], error }
+    property string histId: ""
+    property string histDir: ""
+    property bool histIncoming: false
+
+    function setHistory(id, rec) {
+        var h = {}
+        for (var k in history) h[k] = history[k]
+        h[id] = rec
+        history = h
+    }
+
+    function loadHistory(id, dir, incoming) {
+        var d = str(dir)
+        if (!/^[A-Za-z0-9._-]{1,128}$/.test(d)) return
+        var cur = history[id]
+        if (cur && cur.state === "loading") return
+        if (cur && cur.state === "ready" && cur.incoming === (incoming === true)) return
+        histId = id
+        histDir = d
+        histIncoming = incoming === true
+        setHistory(id, { state: "loading", incoming: histIncoming, lines: [], error: "" })
+        if (histIncoming) {
+            fetchProc.command = Model.gitFetchArgs(pluginsDir + "/" + d)
+            fetchProc.running = true
+        } else {
+            startHistoryLog()
+        }
+    }
+
+    function startHistoryLog() {
+        histProc.command = Model.gitLogArgs(pluginsDir + "/" + histDir, histIncoming)
+        histProc.running = true
+    }
+
+    Process {
+        id: fetchProc
+        running: false
+        stderr: StdioCollector { id: fetchErr }
+        onExited: function(code) {
+            if (code !== 0) {
+                root.setHistory(root.histId, { state: "error", incoming: true, lines: [],
+                    error: "Could not reach the remote to fetch changes." })
+                return
+            }
+            root.startHistoryLog()
+        }
+    }
+
+    Process {
+        id: histProc
+        running: false
+        stdout: StdioCollector { id: histOut }
+        stderr: StdioCollector { id: histErr }
+        onExited: function(code) {
+            if (code !== 0) {
+                var msg = (histErr.text || "").trim().split("\n").slice(-1)[0] || "git log failed"
+                root.setHistory(root.histId, { state: "error", incoming: root.histIncoming, lines: [], error: msg.slice(0, 160) })
+                return
+            }
+            root.setHistory(root.histId, { state: "ready", incoming: root.histIncoming,
+                lines: Model.parseGitLog(histOut.text || ""), error: "" })
+        }
+    }
+
     // ---- bookmarks / visits ------------------------------------------------------------
     function toggleBookmark(id) {
         var next = {}

@@ -558,6 +558,32 @@ function healthOf(installedList, births, gitDirs, catalogMap) {
     return out
 }
 
+// ---- git history (changelog in the detail pane) --------------------------------
+// One line per commit: abbreviated hash, author date, subject, tab-separated.
+function gitLogArgs(dirPath, incoming) {
+    var argv = ["git", "-C", str(dirPath), "log", "-n", "20",
+                "--pretty=format:%h\t%ad\t%s", "--date=short"]
+    if (incoming) argv.push("HEAD..FETCH_HEAD")
+    return argv
+}
+
+function gitFetchArgs(dirPath) {
+    return ["git", "-C", str(dirPath), "fetch", "--quiet", "origin", "HEAD"]
+}
+
+function parseGitLog(text) {
+    var out = []
+    var lines = str(text).split("\n")
+    for (var i = 0; i < lines.length && out.length < 20; i++) {
+        if (lines[i].trim() === "") continue
+        var parts = lines[i].split("\t")
+        if (parts.length < 3) continue
+        out.push({ hash: str(parts[0]).slice(0, 40), date: str(parts[1]).slice(0, 10),
+                   subject: str(parts.slice(2).join("\t")).slice(0, 200) })
+    }
+    return out
+}
+
 // ---- display helpers -----------------------------------------------------------
 function relTime(t, now) {
     if (!t) return "unknown"

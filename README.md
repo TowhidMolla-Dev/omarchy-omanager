@@ -27,6 +27,7 @@ A plugin manager for the Omarchy bar. Click the bar button and a panel opens; cl
   - not in the catalog (local or unpublished)
   - a plugin directory with no readable `manifest.json`
   The detail pane shows the exact problem and an **Open folder** button. Updates and removals always run against the real folder name, so a plugin in a differently named folder still updates and removes correctly.
+- **Changelog**: the detail pane lists an installed plugin's recent commits (`git log`, read-only). When an update is pending, **Incoming** fetches and shows exactly what the update would bring in, so you can see the changes before you update.
 - **Filters**:
   - community / built-in / all
   - category

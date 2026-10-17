@@ -3,7 +3,7 @@
 // Model.js starts with the QML-only `.pragma library` line, so strip it before evaluating.
 const fs = require("fs"), path = require("path"), assert = require("assert");
 let src = fs.readFileSync(path.join(__dirname, "..", "Model.js"), "utf8").replace(/^\.pragma.*$/m, "");
-const M = new Function(src + "; return {normalizeCatalog, normalizeStats, applyStats, normalizeInstalled, normalizeScan, normalizeBirths, normalizeDirSet, applyScan, healthOf, pluginTarget, query, findUpdates, compareVersions, safeRepoUrl, safeImageUrl, safeCatalogUrl, actionArgs, relTime, fmtCount, validHex};")();
+const M = new Function(src + "; return {normalizeCatalog, normalizeStats, applyStats, normalizeInstalled, normalizeScan, normalizeBirths, normalizeDirSet, applyScan, healthOf, pluginTarget, gitLogArgs, gitFetchArgs, parseGitLog, query, findUpdates, compareVersions, safeRepoUrl, safeImageUrl, safeCatalogUrl, actionArgs, relTime, fmtCount, validHex};")();
 
 const DAY = 864e5, now = Date.parse("2026-10-07T12:00:00Z");
 const iso = d => new Date(now - d * DAY).toISOString();
@@ -206,6 +206,27 @@ const ids = r => r.items.map(p => p.id);
   for (const f of h) set[f.id] = true;
   const got = ids(M.query(cat, merged.list, merged.map, { ...base, source: "all", status: "issues", healthSet: set }));
   assert.deepStrictEqual(got, ["me.local-dev"]);
+})();
+
+(function gitHistory() {
+  // The changelog is git's own output, parsed defensively: hash, date, subject.
+  const log = M.parseGitLog([
+    "a1b2c3d\t2026-10-01\tFix the thing",
+    "9f8e7d6\t2026-09-20\tAdd a\tfeature with a tab",
+    "garbage line without tabs",
+    "",
+    "deadbee\t2026-09-01\tInitial commit",
+  ].join("\n"));
+  assert.deepStrictEqual(log[0], { hash: "a1b2c3d", date: "2026-10-01", subject: "Fix the thing" });
+  assert.strictEqual(log[1].subject, "Add a\tfeature with a tab", "tabs inside a subject survive");
+  assert.strictEqual(log.length, 3, "a line with no tabs is skipped");
+  assert.deepStrictEqual(M.parseGitLog(""), []);
+
+  const recent = M.gitLogArgs("/home/me/plugins/x.y", false);
+  assert.deepStrictEqual(recent.slice(0, 4), ["git", "-C", "/home/me/plugins/x.y", "log"]);
+  assert.ok(!recent.includes("HEAD..FETCH_HEAD"), "recent history is not ranged");
+  assert.ok(M.gitLogArgs("/p/x", true).includes("HEAD..FETCH_HEAD"), "incoming history is ranged");
+  assert.deepStrictEqual(M.gitFetchArgs("/p/x"), ["git", "-C", "/p/x", "fetch", "--quiet", "origin", "HEAD"]);
 })();
 
 (function commands() {
