@@ -221,6 +221,7 @@ Item {
     }
     onTabNameChanged: {
         status = "any"; category = ""; tags = []; selected = null
+        selectMode = false; selection = ({})
         if (tabName !== "installed" && sortKey === "installed") sortKey = cfgSafe.defaultSort
         recomputeTimer.restart()
     }
@@ -330,6 +331,61 @@ Item {
     function openMenu(p, x, y) { menu = null; menu = { p: p, x: x, y: y } }
     function closeMenu() { menu = null }
 
+    // ---- batch selection --------------------------------------------------------
+    // id -> plugin, so a batch action knows each plugin's name and repo even after
+    // the list is filtered. Selecting is a mode: cards show a checkbox and click
+    // picks instead of opening.
+    property bool selectMode: false
+    property var selection: ({})
+    readonly property int selCount: {
+        var n = 0
+        for (var k in selection) n++
+        return n
+    }
+    function toggleSelect(p) {
+        var s = {}
+        for (var k in selection) s[k] = selection[k]
+        if (s[p.id] !== undefined) delete s[p.id]
+        else s[p.id] = p
+        selection = s
+    }
+    function clearSelection() { selection = ({}) }
+    function setSelectMode(on) { selectMode = on === true; if (!selectMode) clearSelection() }
+    function selectAllVisible() {
+        var s = {}
+        for (var i = 0; i < items.length; i++) s[items[i].id] = items[i]
+        selection = s
+    }
+    // The selected plugins that a given batch action actually applies to.
+    function selectedFor(kind) {
+        var out = []
+        for (var id in selection) {
+            var p = selection[id]
+            var st = stateOf(p)
+            if (kind === "enable" && st.installed && !st.enabled) out.push(p)
+            else if (kind === "disable" && st.installed && st.enabled) out.push(p)
+            else if (kind === "update" && st.update) out.push(p)
+            else if (kind === "remove" && st.installed && !p.builtin) out.push(p)
+            else if (kind === "install" && !st.installed && !p.builtin && p.repo !== "" && p.installable) out.push(p)
+            else if (kind === "save" && !(service && service.bookmarks[p.id])) out.push(p)
+        }
+        return out
+    }
+    function requestBatch(kind) {
+        var list = selectedFor(kind)
+        if (list.length === 0) return
+        var ask = (kind === "remove" && cfgSafe.confirmRemove)
+               || ((kind === "install" || kind === "update") && cfgSafe.confirmInstall)
+        if (ask) { confirm = { kind: kind, p: list[0], list: list }; return }
+        runBatch(kind, list)
+    }
+    function runBatch(kind, list) {
+        if (!service) return
+        for (var i = 0; i < list.length; i++)
+            service.perform(kind, list[i].id, list[i].name, list[i].repo)
+        clearSelection()
+    }
+
     function requestAction(kind, p) {
         if (!service) return
         if (kind === "install" && !cfgSafe.allowUnverified && !p.verified) {
@@ -382,6 +438,8 @@ Item {
             selected = null
             confirm = null
             menu = null
+            selectMode = false
+            selection = ({})
             showLog = false
             if (service) service.markSeen()
         }

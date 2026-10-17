@@ -360,6 +360,37 @@ Item {
                                 : (view.mode === "list" ? "\u2630 List" : "\u2263 Compact"))
                             onClicked: view.cycleLayout()
                         }
+                        Btn {
+                            ui: view.ui
+                            visible: ui.tabName !== "settings"
+                            active: ui.selectMode
+                            text: ui.selectMode ? "Done" : "Select"
+                            onClicked: ui.setSelectMode(!ui.selectMode)
+                        }
+                    }
+
+                    // ---- batch action bar: appears while selecting ----
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: ui.selectMode
+                        spacing: ui.px(6)
+
+                        Txt {
+                            ui: view.ui
+                            Layout.fillWidth: true
+                            elide: Text.ElideRight
+                            text: ui.selCount === 0 ? "Pick plugins to act on"
+                                : ui.selCount + (ui.selCount === 1 ? " selected" : " selected")
+                            font.pixelSize: ui.fs(11)
+                            opacity: 0.7
+                        }
+                        Btn { ui: view.ui; text: "All"; onClicked: ui.selectAllVisible() }
+                        Btn { ui: view.ui; text: "None"; visible: ui.selCount > 0; onClicked: ui.clearSelection() }
+                        Btn { ui: view.ui; kind: "primary"; text: "Update"; visible: ui.selCount > 0; enabled: ui.selectedFor("update").length > 0; onClicked: ui.requestBatch("update") }
+                        Btn { ui: view.ui; text: "Enable"; visible: ui.selCount > 0; enabled: ui.selectedFor("enable").length > 0; onClicked: ui.requestBatch("enable") }
+                        Btn { ui: view.ui; text: "Disable"; visible: ui.selCount > 0; enabled: ui.selectedFor("disable").length > 0; onClicked: ui.requestBatch("disable") }
+                        Btn { ui: view.ui; text: "Save"; visible: ui.selCount > 0; enabled: ui.selectedFor("save").length > 0; onClicked: ui.requestBatch("save") }
+                        Btn { ui: view.ui; kind: "danger"; text: "Remove"; visible: ui.selCount > 0; enabled: ui.selectedFor("remove").length > 0; onClicked: ui.requestBatch("remove") }
                     }
 
                     Item {
@@ -565,6 +596,9 @@ Item {
 
                 readonly property string kind: ui.confirm ? ui.confirm.kind : ""
                 readonly property var plug: ui.confirm ? ui.confirm.p : null
+                readonly property var list: (ui.confirm && ui.confirm.list) ? ui.confirm.list : null
+                readonly property int n: list ? list.length : (plug ? 1 : 0)
+                readonly property string verb: kind === "remove" ? "Remove" : (kind === "update" ? "Update" : "Install")
 
                 Txt {
                     ui: view.ui
@@ -572,7 +606,8 @@ Item {
                     wrapMode: Text.Wrap
                     font.pixelSize: ui.fs(15)
                     font.weight: Font.DemiBold
-                    text: dlg.plug ? (dlg.kind === "remove" ? "Remove " : (dlg.kind === "update" ? "Update " : "Install ")) + dlg.plug.name + "?" : ""
+                    text: !plug ? "" : (dlg.n > 1 ? dlg.verb + " " + dlg.n + " plugins?"
+                                                  : dlg.verb + " " + dlg.plug.name + "?")
                 }
                 Txt {
                     ui: view.ui
@@ -581,7 +616,8 @@ Item {
                     opacity: 0.75
                     text: {
                         if (!dlg.plug) return ""
-                        if (dlg.kind === "remove") return "The plugin folder is deleted from your plugins directory."
+                        if (dlg.kind === "remove") return dlg.n > 1 ? "Those plugin folders are deleted from your plugins directory."
+                                                                    : "The plugin folder is deleted from your plugins directory."
                         var t = "Plugins run as unsandboxed code inside your shell, with your user permissions. Installing fetches the plugin's current upstream code"
                         t += dlg.plug.verified ? ", which may be newer than the snapshot that earned its Verified badge." : "."
                         if (!dlg.plug.verified) t += "\n\nThis plugin is NOT verified."
@@ -592,7 +628,7 @@ Item {
                     ui: view.ui
                     Layout.fillWidth: true
                     wrapMode: Text.WrapAnywhere
-                    visible: dlg.plug && dlg.plug.repo !== "" && dlg.kind !== "remove"
+                    visible: dlg.plug && dlg.n === 1 && dlg.plug.repo !== "" && dlg.kind !== "remove"
                     font.pixelSize: ui.fs(10)
                     opacity: 0.55
                     text: dlg.plug ? "From " + dlg.plug.repo : ""
@@ -604,8 +640,14 @@ Item {
                     Btn {
                         ui: view.ui
                         kind: dlg.kind === "remove" ? "danger" : "primary"
-                        text: dlg.kind === "remove" ? "Remove" : (dlg.kind === "update" ? "Update" : "Install")
-                        onClicked: { var c = ui.confirm; ui.confirm = null; if (c) ui.runAction(c.kind, c.p) }
+                        text: dlg.verb
+                        onClicked: {
+                            var c = ui.confirm
+                            ui.confirm = null
+                            if (!c) return
+                            if (c.list) ui.runBatch(c.kind, c.list)
+                            else ui.runAction(c.kind, c.p)
+                        }
                     }
                 }
             }
