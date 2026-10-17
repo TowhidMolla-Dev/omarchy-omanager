@@ -130,6 +130,9 @@ const ids = r => r.items.map(p => p.id);
   assert.strictEqual(M.actionArgs("install", "x", "ssh://evil", {}), null);
   assert.strictEqual(M.actionArgs("remove", "--all", "", {}), null, "flag-like id refused");
   assert.deepStrictEqual(M.actionArgs("remove", "a.b", "", {}).fallback, ["omarchy", "plugin", "remove", "a.b"]);
+  const u = M.actionArgs("update", "a.b", "", {});
+  assert.deepStrictEqual(u.argv, ["omarchy", "plugin", "update", "a.b", "--yes"], "update is non-interactive: it needs --yes");
+  assert.strictEqual(u.fallback, null, "a fallback without --yes could only fail with the same refusal");
   assert.strictEqual(M.actionArgs("explode", "a.b", "", {}), null);
 })();
 

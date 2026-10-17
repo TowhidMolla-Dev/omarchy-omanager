@@ -445,7 +445,8 @@ function actionArgs(kind, id, repo, cfg) {
         return { argv: argv, fallback: null }
     }
     if (!SAFE_ID.test(str(id))) return null
-    if (kind === "update") return { argv: base.concat(["update", id]), fallback: null }
+    if (kind === "update")
+        return { argv: base.concat(["update", id, "--yes"]), fallback: null }
     if (kind === "enable" || kind === "disable") return { argv: base.concat([kind, id]), fallback: null }
     if (kind === "remove")
         return { argv: base.concat(["remove", id, "--yes"]), fallback: base.concat(["remove", id]) }
