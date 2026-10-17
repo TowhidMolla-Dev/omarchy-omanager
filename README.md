@@ -18,6 +18,9 @@ A plugin manager for the Omarchy bar. Click the bar button and a panel opens; cl
   - views
   - best install rate
   - A to Z
+  - **newly installed** (Installed tab only: the moment each plugin landed on disk, newest first)
+
+  The Installed tab's sort list also offers **Newly installed**, which reads each plugin directory's birth time (falling back to its modification time on filesystems that don't record one). Everything else is offered there too.
 - **Filters**:
   - community / built-in / all
   - category
@@ -250,6 +253,7 @@ Things that are inferred rather than confirmed:
 - **Last upgraded date**: reads `repositoryUpdatedAt` first, then several other spellings. If "Upgraded" shows "unknown" or looks wrong, adjust the alias list in `normalizePlugin`.
 - **Stats API response shape**: `api.omarchyplugins.com/v1/stats` accepts several shapes. If none matches, hearts / views simply stay empty.
 - **Installed versions**: `omarchy plugin list --json` reports no version at all, so the Updates tab reads each plugin's `manifest.json` under `~/.config/omarchy/plugins/*/` with `jq` (an omarchy dependency, run through `find -exec`). Without `jq` the scan comes back empty, no updates are shown, and the activity log says why.
+- **Install time**: not in the manifest either, so the Installed tab's **Newly installed** sort takes each plugin directory's birth time from `stat` (`%W`, falling back to mtime `%Y` on filesystems that don't record birth time). Directories with no readable time sort last.
 - **`FloatingWindow`**: the pop-out comes from Quickshell. It is used by other Omarchy plugins but has not been run here.
 - **CLI flags**: the `--yes` flags on `plugin add` / `plugin remove` and the `plugin enable|disable|update` subcommands are assumed. Remove retries without `--yes` if the first attempt fails.
 

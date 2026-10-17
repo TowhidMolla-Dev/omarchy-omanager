@@ -3,7 +3,7 @@
 // Model.js starts with the QML-only `.pragma library` line, so strip it before evaluating.
 const fs = require("fs"), path = require("path"), assert = require("assert");
 let src = fs.readFileSync(path.join(__dirname, "..", "Model.js"), "utf8").replace(/^\.pragma.*$/m, "");
-const M = new Function(src + "; return {normalizeCatalog, normalizeStats, applyStats, normalizeInstalled, normalizeVersions, applyVersions, query, findUpdates, compareVersions, safeRepoUrl, safeImageUrl, safeCatalogUrl, actionArgs, relTime, fmtCount, validHex};")();
+const M = new Function(src + "; return {normalizeCatalog, normalizeStats, applyStats, normalizeInstalled, normalizeScan, normalizeBirths, applyScan, query, findUpdates, compareVersions, safeRepoUrl, safeImageUrl, safeCatalogUrl, actionArgs, relTime, fmtCount, validHex};")();
 
 const DAY = 864e5, now = Date.parse("2026-10-07T12:00:00Z");
 const iso = d => new Date(now - d * DAY).toISOString();
@@ -95,32 +95,64 @@ const ids = r => r.items.map(p => p.id);
   assert.deepStrictEqual(M.findUpdates(cat, inst.map), ["a.old-popular"]);
 })();
 
-(function installedVersions() {
+(function installedScan() {
   // `plugin list --json` carries no version at all, so the installed version is
   // read from manifest.json and merged in. Without that merge the Updates tab
-  // can never find anything to update.
+  // can never find anything to update. The same scan also recovers the plugin's
+  // directory (which is what an update runs against) and its install time.
   const text = [
-    '["a.old-popular","1.1.0"]',
-    '["omarchy.clock","1"]',
-    '["bad --id","9.9.9"]',
-    '["no.version",""]',
+    '["a.old-popular","1.1.0","/p/a.old-popular/manifest.json"]',
+    '["omarchy.clock","1","/p/omarchy.clock/manifest.json"]',
+    '["bad --id","9.9.9","/p/bad/manifest.json"]',
+    '["no.version","","/p/no.version/manifest.json"]',
     'not json at all',
-    '["also.trailing","2.0.0","extra"]',
+    '["also.trailing","2.0.0","/p/also.trailing/manifest.json","extra"]',
   ].join("\n");
-  const v = M.normalizeVersions(text);
-  assert.deepStrictEqual(v, { "a.old-popular": "1.1.0", "omarchy.clock": "1", "also.trailing": "2.0.0" });
-  assert.deepStrictEqual(M.normalizeVersions(""), {}, "an empty scan is not an error");
-  assert.deepStrictEqual(M.normalizeVersions('["x.y","v\n1.0"]'), {}, "a stray newline cannot forge an id");
+  const s = M.normalizeScan(text);
+  assert.deepStrictEqual(s, {
+    "a.old-popular": { version: "1.1.0", dir: "a.old-popular" },
+    "omarchy.clock": { version: "1", dir: "omarchy.clock" },
+    "no.version": { version: "", dir: "no.version" },
+    "also.trailing": { version: "2.0.0", dir: "also.trailing" },
+  });
+  assert.deepStrictEqual(M.normalizeScan(""), {}, "an empty scan is not an error");
+  assert.deepStrictEqual(M.normalizeScan('["x.y","v\n1.0"]'), {}, "a stray newline cannot forge an id");
+  assert.strictEqual(M.normalizeScan('["x.y","1","/p/weird name/manifest.json"]')["x.y"].dir, "", "a dir with spaces is not a plain name");
+  assert.strictEqual(M.normalizeScan('["x.y","1","/p/x"]')["x.y"].dir, "", "a path without manifest.json has no dir");
 
-  const merged = M.applyVersions(inst, v);
+  const births = M.normalizeBirths([
+    "1791724859 1792217628 /p/a.old-popular",
+    "0 1792217628 /p/omarchy.clock",
+    "oops",
+  ].join("\n"));
+  assert.strictEqual(births["a.old-popular"], 1791724859 * 1000, "birth wins when present");
+  assert.strictEqual(births["omarchy.clock"], 1792217628 * 1000, "mtime is the fallback");
+
+  const merged = M.applyScan(inst, s, births);
   assert.strictEqual(merged.map["a.old-popular"].version, "1.1.0", "the version on disk wins");
+  assert.strictEqual(merged.map["a.old-popular"].dir, "a.old-popular");
+  assert.strictEqual(merged.map["a.old-popular"].installedAt, births["a.old-popular"]);
   assert.strictEqual(merged.map["omarchy.clock"].version, "1");
   assert.strictEqual(merged.map["me.local-dev"].version, "", "no manifest, no version");
+  assert.strictEqual(merged.map["me.local-dev"].installedAt, 0, "no manifest, no install time");
   assert.strictEqual(inst.map["a.old-popular"].version, "1.0.0", "the installed base is not mutated");
   assert.strictEqual(inst.list[0], inst.map["a.old-popular"], "the input pair still shares records");
   assert.strictEqual(merged.list[0], merged.map["a.old-popular"], "the rebuilt pair shares them too");
   assert.deepStrictEqual(M.findUpdates(cat, merged.map), ["a.old-popular"], "updates now come from both sides");
-  assert.deepStrictEqual(M.applyVersions(null, v), { list: [], map: {} });
+  assert.deepStrictEqual(M.applyScan(null, s, births), { list: [], map: {} });
+})();
+
+(function newlyInstalledSort() {
+  // The Installed tab can order by the moment each plugin landed on disk, newest
+  // first. Where there is no install time (local plugins, above) it sorts last.
+  const s = M.normalizeScan([
+    '["a.old-popular","1.0.0","/p/a.old-popular/manifest.json"]',
+    '["omarchy.clock","1","/p/omarchy.clock/manifest.json"]',
+  ].join("\n"));
+  const births = { "a.old-popular": 1000, "omarchy.clock": 9000 };
+  const merged = M.applyScan(inst, s, births);
+  const run = o => ids(M.query(cat, merged.list, merged.map, { ...base, source: "all", status: "installed", ...o }));
+  assert.deepStrictEqual(run({ sort: "installed" }), ["omarchy.clock", "a.old-popular", "me.local-dev"], "newest install first, unknown last");
 })();
 
 (function commands() {

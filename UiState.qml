@@ -164,6 +164,12 @@ Item {
         { key: "rated", label: "Best install rate" },
         { key: "az", label: "A to Z" }
     ]
+    // The Installed tab can also order by when a plugin first landed on disk.
+    // That is a fact about the local directory, not the catalog, so the option
+    // lives only here; the other orders still apply.
+    readonly property var installedSortOptions: [
+        { key: "installed", label: "Newly installed" }
+    ].concat(sortOptions)
 
     function resetFilters() {
         var c = cfgSafe
@@ -215,6 +221,7 @@ Item {
     }
     onTabNameChanged: {
         status = "any"; category = ""; tags = []; selected = null
+        if (tabName !== "installed" && sortKey === "installed") sortKey = cfgSafe.defaultSort
         recomputeTimer.restart()
     }
 
@@ -285,7 +292,9 @@ Item {
             installed: !!inst,
             enabled: !!inst && inst.enabled,
             update: !!updateSet[p.id],
-            version: inst ? inst.version : ""
+            version: inst ? inst.version : "",
+            installedAt: inst ? (inst.installedAt || 0) : 0,
+            dir: inst ? (inst.dir || "") : ""
         }
     }
 

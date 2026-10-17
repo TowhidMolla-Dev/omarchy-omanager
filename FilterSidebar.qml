@@ -48,7 +48,7 @@ Flickable {
             ui: root.ui
             title: "Sort by"
             Repeater {
-                model: ui.sortOptions
+                model: root.onInstalled ? ui.installedSortOptions : ui.sortOptions
                 delegate: Chip {
                     ui: root.ui
                     label: modelData.label

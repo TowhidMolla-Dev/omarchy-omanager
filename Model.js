@@ -257,31 +257,60 @@ function normalizeInstalled(raw) {
     return { list: list, map: map }
 }
 
-// `omarchy plugin list` reports no version, so the installed version comes from
-// each plugin's manifest.json instead: the scanner prints one `[id, version]`
-// JSON array per plugin. That output is untrusted too - id is checked, the
-// version is trimmed and capped.
-function normalizeVersions(text) {
+// The directory a manifest lives in, taken from its path. It is not always the
+// plugin id - a manually cloned plugin keeps the clone's folder name - and it is
+// what `omarchy plugin update` resolves on disk, so it is kept alongside the id.
+function dirNameOf(path) {
+    var m = /^(.*)\/manifest\.json$/.exec(str(path))
+    if (!m) return ""
+    var dir = m[1].split("/").pop()
+    return /^[A-Za-z0-9._-]{1,128}$/.test(dir) ? dir : ""
+}
+
+// `omarchy plugin list` reports no version, so each installed plugin is read
+// from its own manifest.json: the scanner prints one `[id, version, path]` JSON
+// array per plugin. That output is untrusted too - the id is checked, the
+// version trimmed and capped, the directory taken from the path and checked as a
+// plain name.
+function normalizeScan(text) {
     var out = {}
     var lines = str(text).split("\n")
     for (var i = 0; i < lines.length; i++) {
         var line = lines[i].trim()
         if (line === "") continue
-        var pair = null
-        try { pair = JSON.parse(line) } catch (e) { continue }
-        if (!Array.isArray(pair) || pair.length < 2) continue
-        var id = str(pair[0]).trim()
-        var version = str(pair[1]).trim()
-        if (!SAFE_ID.test(id) || version === "") continue
-        out[id] = version.slice(0, 32)
+        var row = null
+        try { row = JSON.parse(line) } catch (e) { continue }
+        if (!Array.isArray(row) || row.length < 2) continue
+        var id = str(row[0]).trim()
+        if (!SAFE_ID.test(id)) continue
+        out[id] = { version: str(row[1]).trim().slice(0, 32), dir: dirNameOf(row[2]) }
     }
     return out
 }
 
-// Fills the installed records with the versions read from disk and rebuilds the
-// id map, giving findUpdates both sides of its comparison. Returns a new
-// { list, map } pair: the records handed in are never mutated.
-function applyVersions(inst, versions) {
+// `stat -c '%W %Y %n'` over the plugin directories: birth time (0 on filesystems
+// that do not record one), mtime, then the path. "Newly installed" uses birth
+// and falls back to mtime, so a plugin installed on an older filesystem still
+// sorts sensibly.
+function normalizeBirths(text) {
+    var out = {}
+    var lines = str(text).split("\n")
+    for (var i = 0; i < lines.length; i++) {
+        var m = /^(\d+)\s+(\d+)\s+(.+)$/.exec(lines[i])
+        if (!m) continue
+        var dir = m[3].replace(/\/+$/, "").split("/").pop()
+        if (!/^[A-Za-z0-9._-]{1,128}$/.test(dir)) continue
+        var w = Number(m[1]), y = Number(m[2])
+        out[dir] = w > 0 ? w * 1000 : (y > 0 ? y * 1000 : 0)
+    }
+    return out
+}
+
+// Folds the on-disk scan into the installed records and rebuilds the id map:
+// `version` feeds findUpdates, `dir` is what an update runs against, and
+// `installedAt` (from the birth scan) feeds the "Newly installed" sort. Returns
+// a new { list, map } pair: the records handed in are never mutated.
+function applyScan(inst, scan, births) {
     var list = []
     var map = {}
     if (!inst || !Array.isArray(inst.list)) return { list: list, map: map }
@@ -289,8 +318,10 @@ function applyVersions(inst, versions) {
         var src = inst.list[i]
         var rec = {}
         for (var k in src) rec[k] = src[k]
-        var onDisk = versions ? versions[rec.id] : undefined
-        if (onDisk) rec.version = onDisk
+        var s = scan ? scan[rec.id] : null
+        if (s && s.version) rec.version = s.version
+        rec.dir = s ? s.dir : ""
+        rec.installedAt = (s && s.dir && births && births[s.dir] !== undefined) ? births[s.dir] : 0
         list.push(rec)
         map[rec.id] = rec
     }
@@ -343,7 +374,15 @@ function dateOf(p, scope) {
     return scope === "added" ? p.addedAt : (scope === "updated" ? p.updatedAt : p.fresh)
 }
 
+// The pool (and the id set built alongside it) is rebuilt only when the
+// catalog, the installed list or the source changes. query() runs on every
+// keystroke and filter change; rebuilding a 5,000-odd-entry concatenation each
+// time was the one cost that grew with the catalog.
+var _poolCache = { catalog: null, installed: null, source: null, out: null }
+
 function pool(catalog, installedList, installedMap, source) {
+    if (_poolCache.catalog === catalog && _poolCache.installed === installedList && _poolCache.source === source)
+        return _poolCache.out
     var out = []
     if (source === "community" || source === "all") {
         out = out.concat(catalog)
@@ -358,6 +397,7 @@ function pool(catalog, installedList, installedMap, source) {
         for (var k = 0; k < installedList.length; k++)
             if (installedList[k].builtin) out.push(pseudoRecord(installedList[k], "Built-in", "Omarchy"))
     }
+    _poolCache = { catalog: catalog, installed: installedList, source: source, out: out }
     return out
 }
 
@@ -375,9 +415,14 @@ function statusOk(p, status, ctx) {
     }
 }
 
-function sorter(key) {
+function sorter(key, ctx) {
     var by = function(f, dir) { return function(a, b) { return (f(b) - f(a)) * dir } }
+    var installedAt = function(p) {
+        var inst = ctx && ctx.installedMap ? ctx.installedMap[p.id] : null
+        return inst ? (inst.installedAt || 0) : 0
+    }
     switch (key) {
+    case "installed": return by(installedAt, 1)
     case "listed": return function(a, b) { return (a._i || 0) - (b._i || 0) }
     case "updated": return by(function(p) { return p.updatedAt }, 1)
     case "fresh": return by(function(p) { return p.fresh }, 1)
@@ -428,7 +473,7 @@ function query(catalog, installedList, installedMap, st) {
         for (var i = 0; i < wantTags.length; i++) if (p.tags.indexOf(wantTags[i]) < 0) return false
         return true
     })
-    var cmp = sorter(st.sort)
+    var cmp = sorter(st.sort, ctx)
     items.sort(function(a, b) { return cmp(a, b) || (a._i - b._i) })
     return { items: items, facets: facets, poolSize: all.length }
 }

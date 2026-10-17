@@ -43,7 +43,8 @@ Item {
     property var installed: []
     property var installedMap: ({})
     property var installedBase: null            // last parse of `omarchy plugin list --json`
-    property var installedVersions: ({})        // plugin id -> version from its manifest.json
+    property var installedScan: ({})            // plugin id -> { version, dir } from its manifest.json
+    property var installedBirths: ({})          // plugin dir -> install time (ms), from stat
     property int installedAttempts: 0           // retries while the shell is still coming up
     property bool installedReady: false
     property var updateIds: []
@@ -92,16 +93,18 @@ Item {
     onInstalledMapChanged: recompute()
 
     // `omarchy plugin list` has no version field, so an installed plugin's
-    // version is read from its manifest.json. The two land at different times,
-    // so both paths lead here and the window always sees one consistent pair.
+    // version, directory and install time all come from a scan of its
+    // manifest.json directory. The pieces land at different times, so every path
+    // leads here and the window always sees one consistent pair.
     function assembleInstalled() {
         if (!installedBase) return
-        var r = Model.applyVersions(installedBase, installedVersions)
+        var r = Model.applyScan(installedBase, installedScan, installedBirths)
         installed = r.list
         installedMap = r.map
         installedReady = true
     }
-    onInstalledVersionsChanged: assembleInstalled()
+    onInstalledScanChanged: assembleInstalled()
+    onInstalledBirthsChanged: assembleInstalled()
 
     // An empty scan while third-party plugins are installed means jq is gone or
     // the directory moved. Say it once, so "no updates" is never a mystery.
@@ -278,6 +281,7 @@ Item {
                 root.installedBase = r
                 root.assembleInstalled()
                 versionScanner.running = true
+                birthScanner.running = true
             }
         }
     }
@@ -291,7 +295,7 @@ Item {
 
     // Third-party plugins live in ~/.config/omarchy/plugins/<dir>/manifest.json.
     // The directory name is not always the plugin id, so the id is read from the
-    // manifest itself: one `[id, version]` JSON array per plugin on stdout.
+    // manifest itself: one `[id, version, path]` JSON array per plugin on stdout.
     // Hidden directories are clone staging areas and backups, never plugins. One
     // jq per manifest so a half-written file only costs its own line, and the
     // whole command stays an argument array like every other one here.
@@ -301,15 +305,34 @@ Item {
         command: ["find", root.pluginsDir, "-mindepth", "2", "-maxdepth", "2",
                   "-name", "manifest.json", "-not", "-path", root.pluginsDir + "/.*",
                   "-exec", "jq", "--compact-output",
-                  '[(.id // ""), (.version // "")]', "{}", ";"]
+                  '[(.id // ""), (.version // ""), (input_filename)]', "{}", ";"]
         stdout: StdioCollector {
             id: versionOut
             onStreamFinished: {
                 var text = versionOut.text || ""
                 // Nothing read: keep the versions already known rather than
                 // clearing every update the moment a scan comes back empty.
-                if (text.trim() !== "") root.installedVersions = Model.normalizeVersions(text)
+                if (text.trim() !== "") root.installedScan = Model.normalizeScan(text)
                 else root.warnNoVersions()
+            }
+        }
+        onExited: root.assembleInstalled()
+    }
+
+    // The install time is not in the manifest, so it comes from the directory
+    // itself: `stat` prints birth time (0 when the filesystem does not record
+    // one) then mtime. It is what makes "Newly installed" possible.
+    Process {
+        id: birthScanner
+        running: false
+        command: ["find", root.pluginsDir, "-mindepth", "1", "-maxdepth", "1",
+                  "-type", "d", "-not", "-name", ".*",
+                  "-exec", "stat", "--format=%W %Y %n", "{}", ";"]
+        stdout: StdioCollector {
+            id: birthOut
+            onStreamFinished: {
+                var text = birthOut.text || ""
+                if (text.trim() !== "") root.installedBirths = Model.normalizeBirths(text)
             }
         }
         onExited: root.assembleInstalled()
