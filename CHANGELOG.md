@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.4
+
+- On Omarchy 4.5, where the bar's window spans the screen, the panel didn't open, or
+  opened over the bar. It now opens off the bar's outer edge, on any edge and with any
+  bar size.
+
 ## 2.0.3
 
 - The filters list the 24 categories and 24 tags with the most plugins, plus the ones you picked, so the sidebar stays short however many the catalog has.
