@@ -76,6 +76,7 @@ class ManifestTests(unittest.TestCase):
         view = read(os.path.join(base, "panel", "ManagerView.qml"))
         state = read(os.path.join(base, "core", "UiState.qml"))
         service = read(os.path.join(base, "Service.qml"))
+        self.assertIn('p.kindKey === "bar-widget"', state)
         self.assertIn('p.kinds.indexOf("bar-widget") >= 0', state)
         self.assertIn('confirm = { kind: kind, p: p, placement: placement,', state)
         self.assertIn('text: "Place the bar widget:"', view)
