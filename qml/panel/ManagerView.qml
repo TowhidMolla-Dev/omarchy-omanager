@@ -201,17 +201,6 @@ Item {
                 Btn {
                     ui: view.ui
                     Layout.alignment: Qt.AlignVCenter
-                    visible: ui.tabName === "updates" && ui.service && ui.service.updateCount > 0
-                    kind: "primary"
-                    text: "Update all (" + (ui.service ? ui.service.updateCount : 0) + ")"
-                    onClicked: {
-                        for (var i = 0; i < ui.items.length; i++)
-                            ui.service.perform("update", ui.items[i].id, ui.items[i].name, ui.items[i].repo)
-                    }
-                }
-                Btn {
-                    ui: view.ui
-                    Layout.alignment: Qt.AlignVCenter
                     visible: ui.tabName === "settings"
                     kind: settingsView.confirmReset ? "primary" : "normal"
                     text: settingsView.confirmReset ? "Really reset?" : "Reset all"
@@ -416,28 +405,93 @@ Item {
                         }
                     }
 
-                    // ---- batch action bar: appears while selecting ----
+                    // ---- tab-specific batch action bar ----
                     RowLayout {
                         Layout.fillWidth: true
-                        visible: ui.selectMode
+                        visible: ui.batchKind !== "" || ui.selectMode
                         spacing: ui.px(6)
 
-                        Txt {
-                            ui: view.ui
+                        Flow {
+                            id: selectedChips
                             Layout.fillWidth: true
-                            elide: Text.ElideRight
-                            text: ui.selCount === 0 ? "Pick plugins to act on"
-                                : ui.selCount + (ui.selCount === 1 ? " selected" : " selected")
-                            font.pixelSize: ui.fs(11)
-                            opacity: 0.7
+                            Layout.minimumWidth: ui.px(100)
+                            spacing: ui.px(5)
+
+                            Txt {
+                                ui: view.ui
+                                height: ui.px(24)
+                                verticalAlignment: Text.AlignVCenter
+                                text: ui.selCount === 0 ? "Select plugins or use All"
+                                    : ui.selCount + " selected"
+                                font.pixelSize: ui.fs(11)
+                                opacity: 0.7
+                            }
+                            Repeater {
+                                model: ui.selectedPlugins
+                                delegate: Rectangle {
+                                    id: chip
+                                    property var plugin: modelData
+                                    width: Math.min(ui.px(180), nameLabel.implicitWidth + ui.px(32))
+                                    height: ui.px(24)
+                                    radius: ui.r(1.5)
+                                    color: ui.accentTint(chipArea.containsMouse ? 0.26 : 0.16)
+                                    border.width: 1
+                                    border.color: ui.accentTint(0.4)
+
+                                    Txt {
+                                        id: nameLabel
+                                        ui: view.ui
+                                        anchors.left: parent.left
+                                        anchors.leftMargin: ui.px(8)
+                                        anchors.right: removeMark.left
+                                        anchors.rightMargin: ui.px(4)
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: chip.plugin.name
+                                        elide: Text.ElideRight
+                                        font.pixelSize: ui.fs(11)
+                                    }
+                                    Txt {
+                                        id: removeMark
+                                        ui: view.ui
+                                        anchors.right: parent.right
+                                        anchors.rightMargin: ui.px(7)
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: "\u00d7"
+                                        opacity: chipArea.containsMouse ? 1 : 0
+                                        font.pixelSize: ui.fs(14)
+                                    }
+                                    MouseArea {
+                                        id: chipArea
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: ui.unselect(chip.plugin.id)
+                                    }
+                                }
+                            }
                         }
-                        Btn { ui: view.ui; text: "All"; onClicked: ui.selectAllVisible() }
-                        Btn { ui: view.ui; text: "None"; visible: ui.selCount > 0; onClicked: ui.clearSelection() }
-                        Btn { ui: view.ui; kind: "primary"; text: "Update"; visible: ui.selCount > 0; enabled: ui.selectedFor("update").length > 0; onClicked: ui.requestBatch("update") }
-                        Btn { ui: view.ui; text: "Enable"; visible: ui.selCount > 0; enabled: ui.selectedFor("enable").length > 0; onClicked: ui.requestBatch("enable") }
-                        Btn { ui: view.ui; text: "Disable"; visible: ui.selCount > 0; enabled: ui.selectedFor("disable").length > 0; onClicked: ui.requestBatch("disable") }
-                        Btn { ui: view.ui; text: "Save"; visible: ui.selCount > 0; enabled: ui.selectedFor("save").length > 0; onClicked: ui.requestBatch("save") }
-                        Btn { ui: view.ui; kind: "danger"; text: "Remove"; visible: ui.selCount > 0; enabled: ui.selectedFor("remove").length > 0; onClicked: ui.requestBatch("remove") }
+                        Btn { ui: view.ui; Layout.alignment: Qt.AlignTop; text: "All"; enabled: ui.batchKind === "" ? ui.items.length > 0 : ui.batchEligible.length > 0; onClicked: ui.requestSelectAll() }
+                        Btn { ui: view.ui; Layout.alignment: Qt.AlignTop; text: "None"; visible: ui.selCount > 0; onClicked: ui.clearSelection() }
+                        Btn {
+                            ui: view.ui
+                            Layout.alignment: Qt.AlignTop
+                            visible: ui.batchKind !== ""
+                            kind: ui.batchKind === "remove" ? "danger" : "primary"
+                            text: ui.batchKind === "install" ? "Install selected"
+                                : (ui.batchKind === "remove" ? "Remove selected" : "Update selected")
+                            enabled: ui.selectedFor(ui.batchKind).length > 0
+                            onClicked: ui.requestBatch(ui.batchKind)
+                        }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: ui.selectMode && ui.selCount > 0
+                        spacing: ui.px(6)
+                        Btn { ui: view.ui; text: "Update"; visible: ui.tabName !== "updates"; enabled: ui.selectedFor("update").length > 0; onClicked: ui.requestBatch("update") }
+                        Btn { ui: view.ui; text: "Enable"; enabled: ui.selectedFor("enable").length > 0; onClicked: ui.requestBatch("enable") }
+                        Btn { ui: view.ui; text: "Disable"; enabled: ui.selectedFor("disable").length > 0; onClicked: ui.requestBatch("disable") }
+                        Btn { ui: view.ui; text: "Save"; enabled: ui.selectedFor("save").length > 0; onClicked: ui.requestBatch("save") }
+                        Btn { ui: view.ui; text: "Remove"; kind: "danger"; visible: ui.tabName !== "installed"; enabled: ui.selectedFor("remove").length > 0; onClicked: ui.requestBatch("remove") }
                     }
 
                     Item {
@@ -651,7 +705,11 @@ Item {
                 readonly property var plug: ui.confirm ? ui.confirm.p : null
                 readonly property var list: (ui.confirm && ui.confirm.list) ? ui.confirm.list : null
                 readonly property int n: list ? list.length : (plug ? 1 : 0)
-                readonly property string verb: kind === "remove" ? "Remove" : (kind === "update" ? "Update" : "Install")
+                readonly property bool choosingAll: kind === "selectAll"
+                readonly property string tabLabel: ui.confirm && ui.confirm.tab
+                    ? ui.confirm.tab.charAt(0).toUpperCase() + ui.confirm.tab.slice(1) : ""
+                readonly property string verb: choosingAll ? "Select all"
+                    : (kind === "remove" ? "Remove" : (kind === "update" ? "Update" : "Install"))
 
                 Txt {
                     ui: view.ui
@@ -659,8 +717,9 @@ Item {
                     wrapMode: Text.Wrap
                     font.pixelSize: ui.fs(15)
                     font.weight: Font.DemiBold
-                    text: !dlg.plug ? "" : (dlg.n > 1 ? dlg.verb + " " + dlg.n + " plugins?"
-                                                     : dlg.verb + " " + dlg.plug.name + "?")
+                    text: dlg.choosingAll ? "Select all " + dlg.n + " plugins in " + dlg.tabLabel + "?"
+                        : (dlg.plug ? (dlg.n > 1 ? dlg.verb + " " + dlg.n + " plugins?"
+                                                    : dlg.verb + " " + dlg.plug.name + "?") : "")
                 }
                 Txt {
                     ui: view.ui
@@ -668,12 +727,17 @@ Item {
                     wrapMode: Text.Wrap
                     opacity: 0.75
                     text: {
+                        if (dlg.choosingAll)
+                            return "This replaces your current selection with all " + dlg.n
+                                + " eligible plugins shown in this tab. No plugins will be installed, updated or removed until you choose an action."
                         if (!dlg.plug) return ""
                         if (dlg.kind === "remove") return dlg.n > 1 ? "Those plugin folders are deleted from your plugins directory."
                                                                     : "The plugin folder is deleted from your plugins directory."
                         var t = "Plugins run as unsandboxed code inside your shell, with your user permissions. Installing fetches the plugin's current upstream code"
                         t += dlg.plug.verified ? ", which may be newer than the snapshot that earned its Verified badge." : "."
-                        if (!dlg.plug.verified) t += "\n\nThis plugin is NOT verified."
+                        if (dlg.list && dlg.list.some(function(p) { return !p.verified }))
+                            t += "\n\nThis selection includes unverified plugins."
+                        else if (!dlg.plug.verified) t += "\n\nThis plugin is NOT verified."
                         return t
                     }
                 }
@@ -698,7 +762,8 @@ Item {
                             var c = ui.confirm
                             ui.confirm = null
                             if (!c) return
-                            if (c.list) ui.runBatch(c.kind, c.list)
+                            if (c.kind === "selectAll") ui.confirmSelectAll(c)
+                            else if (c.list) ui.runBatch(c.kind, c.list)
                             else ui.runAction(c.kind, c.p)
                         }
                     }

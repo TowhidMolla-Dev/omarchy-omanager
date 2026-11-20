@@ -280,7 +280,7 @@ Item {
     }
     onTabNameChanged: {
         status = "any"; category = ""; tags = []; collection = ""; selected = null
-        selectMode = false; selection = ({})
+        selectMode = false; selection = Object.create(null)
         if (tabName !== "installed" && sortKey === "installed") sortKey = cfgSafe.defaultSort
         recomputeTimer.restart()
     }
@@ -412,37 +412,65 @@ Item {
     // the list is filtered. Selecting is a mode: cards show a checkbox and click
     // picks instead of opening.
     property bool selectMode: false
-    property var selection: ({})
-    readonly property int selCount: {
-        var n = 0
-        for (var k in selection) n++
-        return n
+    property var selection: Object.create(null)
+    readonly property string batchKind: tabName === "browse" ? "install"
+        : (tabName === "installed" ? "remove" : (tabName === "updates" ? "update" : ""))
+    readonly property var batchEligible: batchKind !== "" && service && service.installedReady
+        ? Model.batchCandidates(items, batchKind, service.installedMap, updateSet,
+                                cfgSafe.allowUnverified, service.busyIds) : []
+    readonly property var selectedPlugins: {
+        var list = []
+        for (var id in selection) list.push(selection[id])
+        return list
     }
+    readonly property int selCount: selectedPlugins.length
     function toggleSelect(p) {
-        var s = {}
+        var s = Object.create(null)
         for (var k in selection) s[k] = selection[k]
         if (s[p.id] !== undefined) delete s[p.id]
         else s[p.id] = p
         selection = s
     }
-    function clearSelection() { selection = ({}) }
+    function clearSelection() { selection = Object.create(null) }
+    function unselect(id) { selection = Model.withoutSelection(selection, id) }
     function setSelectMode(on) { selectMode = on === true; if (!selectMode) clearSelection() }
-    function selectAllVisible() {
-        var s = {}
-        for (var i = 0; i < items.length; i++) s[items[i].id] = items[i]
+    function selectAllVisible(visible) {
+        var s = Object.create(null)
+        for (var i = 0; i < visible.length; i++) s[visible[i].id] = visible[i]
         selection = s
+    }
+    function requestSelectAll() {
+        if (confirm) return
+        var visible = batchKind !== "" ? batchEligible : items
+        if (visible.length === 0) return
+        confirm = { kind: "selectAll", tab: tabName, list: visible.slice() }
+    }
+    function confirmSelectAll(c) {
+        if (!c || c.kind !== "selectAll" || c.tab !== tabName) return
+        var visible = c.list
+        if (batchKind !== "") {
+            if (!service || !service.installedReady) return
+            visible = Model.batchCandidates(visible, batchKind, service.installedMap, updateSet,
+                                            cfgSafe.allowUnverified, service.busyIds)
+        }
+        setSelectMode(true)
+        selectAllVisible(visible)
     }
     // The selected plugins that a given batch action actually applies to.
     function selectedFor(kind) {
+        if (kind === "install" || kind === "remove" || kind === "update") {
+            if (!service || !service.installedReady) return []
+            var records = []
+            for (var key in selection) records.push(selection[key])
+            return Model.batchCandidates(records, kind, service.installedMap, updateSet,
+                                         cfgSafe.allowUnverified, service.busyIds)
+        }
         var out = []
         for (var id in selection) {
             var p = selection[id]
             var st = stateOf(p)
             if (kind === "enable" && st.installed && !st.enabled) out.push(p)
             else if (kind === "disable" && st.installed && st.enabled) out.push(p)
-            else if (kind === "update" && st.update) out.push(p)
-            else if (kind === "remove" && st.installed && !p.builtin) out.push(p)
-            else if (kind === "install" && !st.installed && !p.builtin && p.repo !== "" && p.installable) out.push(p)
             else if (kind === "save" && !(service && service.bookmarks[p.id])) out.push(p)
         }
         return out
@@ -450,13 +478,15 @@ Item {
     function requestBatch(kind) {
         var list = selectedFor(kind)
         if (list.length === 0) return
-        var ask = (kind === "remove" && cfgSafe.confirmRemove)
-               || ((kind === "install" || kind === "update") && cfgSafe.confirmInstall)
+        var ask = kind === "install" || kind === "remove" || kind === "update"
         if (ask) { confirm = { kind: kind, p: list[0], list: list }; return }
         runBatch(kind, list)
     }
     function runBatch(kind, list) {
         if (!service) return
+        if (kind === "install" || kind === "remove" || kind === "update")
+            list = Model.batchCandidates(list, kind, service.installedMap, updateSet,
+                                         cfgSafe.allowUnverified, service.busyIds)
         for (var i = 0; i < list.length; i++)
             service.perform(kind, list[i].id, list[i].name, list[i].repo)
         clearSelection()
@@ -515,7 +545,7 @@ Item {
             confirm = null
             menu = null
             selectMode = false
-            selection = ({})
+            selection = Object.create(null)
             showLog = false
             if (service) service.markSeen()
         }
