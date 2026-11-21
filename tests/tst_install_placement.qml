@@ -11,9 +11,22 @@ TestCase {
 
     UiState {
         id: managerState
-        cfg: ({ confirmInstall: true, allowUnverified: true, enableAfterInstall: true })
         service: QtObject {
             property bool installedReady: false
+            property var catalog: []
+            property var installed: []
+            property var installedMap: ({})
+            property var bookmarks: ({})
+            property var health: []
+            property int healthCount: 0
+            property var updateIds: []
+            property var sets: []
+            property var themePalette: []
+            property var borderColors: []
+            property real borderAngle: 0
+            property real prevVisit: 0
+            property string catalogState: "ready"
+            property string catalogError: ""
             function perform() {}
             function note() {}
         }

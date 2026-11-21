@@ -408,6 +408,7 @@ Item {
     function closeMenu() { menu = null }
 
     // ---- batch selection --------------------------------------------------------
+    readonly property int batchLimit: 50
     // id -> plugin, so a batch action knows each plugin's name and repo even after
     // the list is filtered. Selecting is a mode: cards show a checkbox and click
     // picks instead of opening.
@@ -478,18 +479,28 @@ Item {
     function requestBatch(kind) {
         var list = selectedFor(kind)
         if (list.length === 0) return
+        if (list.length > batchLimit) {
+            confirm = { kind: "batchLimit", action: kind, count: list.length,
+                        list: list.slice(0, batchLimit) }
+            return
+        }
         var ask = kind === "install" || kind === "remove" || kind === "update"
         if (ask) { confirm = { kind: kind, p: list[0], list: list }; return }
         runBatch(kind, list)
     }
     function runBatch(kind, list) {
         if (!service) return
+        if (list.length > batchLimit) return
         if (kind === "install" || kind === "remove" || kind === "update")
             list = Model.batchCandidates(list, kind, service.installedMap, updateSet,
                                          cfgSafe.allowUnverified, service.busyIds)
-        for (var i = 0; i < list.length; i++)
-            service.perform(kind, list[i].id, list[i].name, list[i].repo)
-        clearSelection()
+        var remaining = Object.create(null)
+        for (var key in selection) remaining[key] = selection[key]
+        for (var i = 0; i < list.length; i++) {
+            if (service.perform(kind, list[i].id, list[i].name, list[i].repo))
+                delete remaining[list[i].id]
+        }
+        selection = remaining
     }
 
     function requestAction(kind, p) {

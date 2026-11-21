@@ -15,6 +15,13 @@ Item {
     id: view
 
     property var ui: null
+    property bool selectionListOpen: false
+    Connections {
+        target: view.ui
+        function onSelCountChanged() {
+            if (view.ui.selCount === 0) view.selectionListOpen = false
+        }
+    }
     clip: true
 
     readonly property bool wide: width >= ui.px(720)
@@ -29,6 +36,7 @@ Item {
 
     // Esc steps back out of whatever is covering things. True when it did something.
     function stepBack() {
+        if (selectionListOpen) { selectionListOpen = false; return true }
         if (ui.menu) { ui.closeMenu(); return true }
         if (ui.confirm) { ui.confirm = null; return true }
         if (ui.selected && !split) { ui.selected = null; return true }
@@ -411,61 +419,70 @@ Item {
                         visible: ui.batchKind !== "" || ui.selectMode
                         spacing: ui.px(6)
 
-                        Flow {
-                            id: selectedChips
+                        Flickable {
                             Layout.fillWidth: true
                             Layout.minimumWidth: ui.px(100)
-                            spacing: ui.px(5)
+                            Layout.preferredHeight: Math.min(selectedChips.implicitHeight, ui.px(82))
+                            contentWidth: width
+                            contentHeight: selectedChips.implicitHeight
+                            flickableDirection: Flickable.VerticalFlick
+                            clip: true
 
-                            Txt {
-                                ui: view.ui
-                                height: ui.px(24)
-                                verticalAlignment: Text.AlignVCenter
-                                text: ui.selCount === 0 ? "Select plugins or use All"
-                                    : ui.selCount + " selected"
-                                font.pixelSize: ui.fs(11)
-                                opacity: 0.7
-                            }
-                            Repeater {
-                                model: ui.selectedPlugins
-                                delegate: Rectangle {
-                                    id: chip
-                                    property var plugin: modelData
-                                    width: Math.min(ui.px(180), nameLabel.implicitWidth + ui.px(32))
+                            Flow {
+                                id: selectedChips
+                                width: parent.width
+                                spacing: ui.px(5)
+
+                                Txt {
+                                    ui: view.ui
                                     height: ui.px(24)
-                                    radius: ui.r(1.5)
-                                    color: ui.accentTint(chipArea.containsMouse ? 0.26 : 0.16)
-                                    border.width: 1
-                                    border.color: ui.accentTint(0.4)
+                                    verticalAlignment: Text.AlignVCenter
+                                    text: ui.selCount === 0 ? "Select plugins or use All"
+                                        : ui.selCount + " selected"
+                                    font.pixelSize: ui.fs(11)
+                                    opacity: 0.7
+                                }
+                                Repeater {
+                                    model: ui.selectedPlugins.slice(0, 20)
+                                    delegate: Rectangle {
+                                        id: chip
+                                        property var plugin: modelData
+                                        width: Math.min(ui.px(180), nameLabel.implicitWidth + ui.px(32))
+                                        height: ui.px(24)
+                                        radius: ui.r(1.5)
+                                        color: ui.accentTint(chipArea.containsMouse ? 0.26 : 0.16)
+                                        border.width: 1
+                                        border.color: ui.accentTint(0.4)
 
-                                    Txt {
-                                        id: nameLabel
-                                        ui: view.ui
-                                        anchors.left: parent.left
-                                        anchors.leftMargin: ui.px(8)
-                                        anchors.right: removeMark.left
-                                        anchors.rightMargin: ui.px(4)
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: chip.plugin.name
-                                        elide: Text.ElideRight
-                                        font.pixelSize: ui.fs(11)
-                                    }
-                                    Txt {
-                                        id: removeMark
-                                        ui: view.ui
-                                        anchors.right: parent.right
-                                        anchors.rightMargin: ui.px(7)
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: "\u00d7"
-                                        opacity: chipArea.containsMouse ? 1 : 0
-                                        font.pixelSize: ui.fs(14)
-                                    }
-                                    MouseArea {
-                                        id: chipArea
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: ui.unselect(chip.plugin.id)
+                                        Txt {
+                                            id: nameLabel
+                                            ui: view.ui
+                                            anchors.left: parent.left
+                                            anchors.leftMargin: ui.px(8)
+                                            anchors.right: removeMark.left
+                                            anchors.rightMargin: ui.px(4)
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            text: chip.plugin.name
+                                            elide: Text.ElideRight
+                                            font.pixelSize: ui.fs(11)
+                                        }
+                                        Txt {
+                                            id: removeMark
+                                            ui: view.ui
+                                            anchors.right: parent.right
+                                            anchors.rightMargin: ui.px(7)
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            text: "\u00d7"
+                                            opacity: chipArea.containsMouse ? 1 : 0
+                                            font.pixelSize: ui.fs(14)
+                                        }
+                                        MouseArea {
+                                            id: chipArea
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: ui.unselect(chip.plugin.id)
+                                        }
                                     }
                                 }
                             }
@@ -485,13 +502,31 @@ Item {
                     }
                     RowLayout {
                         Layout.fillWidth: true
-                        visible: ui.selectMode && ui.selCount > 0
+                        visible: ui.selCount > 20 || (ui.selectMode && ui.selCount > 0)
                         spacing: ui.px(6)
-                        Btn { ui: view.ui; text: "Update"; visible: ui.tabName !== "updates"; enabled: ui.selectedFor("update").length > 0; onClicked: ui.requestBatch("update") }
-                        Btn { ui: view.ui; text: "Enable"; enabled: ui.selectedFor("enable").length > 0; onClicked: ui.requestBatch("enable") }
-                        Btn { ui: view.ui; text: "Disable"; enabled: ui.selectedFor("disable").length > 0; onClicked: ui.requestBatch("disable") }
-                        Btn { ui: view.ui; text: "Save"; enabled: ui.selectedFor("save").length > 0; onClicked: ui.requestBatch("save") }
-                        Btn { ui: view.ui; text: "Remove"; kind: "danger"; visible: ui.tabName !== "installed"; enabled: ui.selectedFor("remove").length > 0; onClicked: ui.requestBatch("remove") }
+                        Btn { ui: view.ui; visible: ui.selCount > 20; text: "+" + (ui.selCount - 20) + " more"; onClicked: view.selectionListOpen = true }
+                        Btn { ui: view.ui; text: "Update"; visible: ui.selectMode && ui.tabName !== "updates"; enabled: ui.selectedFor("update").length > 0; onClicked: ui.requestBatch("update") }
+                        Btn { ui: view.ui; text: "Enable"; visible: ui.selectMode; enabled: ui.selectedFor("enable").length > 0; onClicked: ui.requestBatch("enable") }
+                        Btn { ui: view.ui; text: "Disable"; visible: ui.selectMode; enabled: ui.selectedFor("disable").length > 0; onClicked: ui.requestBatch("disable") }
+                        Btn { ui: view.ui; text: "Save"; visible: ui.selectMode; enabled: ui.selectedFor("save").length > 0; onClicked: ui.requestBatch("save") }
+                        Btn { ui: view.ui; text: "Remove"; kind: "danger"; visible: ui.selectMode && ui.tabName !== "installed"; enabled: ui.selectedFor("remove").length > 0; onClicked: ui.requestBatch("remove") }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: ui.service && (ui.service.current !== null || ui.service.queue.length > 0)
+                        Txt {
+                            ui: view.ui
+                            Layout.fillWidth: true
+                            elide: Text.ElideRight
+                            text: ui.service && ui.service.current
+                                ? ui.service.current.label + "  (" + ui.service.queue.length + " waiting)" : ""
+                        }
+                        Btn {
+                            ui: view.ui
+                            visible: ui.service && ui.service.queue.length > 0
+                            text: "Stop after current"
+                            onClicked: ui.service.cancelQueued()
+                        }
                     }
 
                     Item {
@@ -675,6 +710,64 @@ Item {
         }
     }
 
+    // A virtual list for large selections; the toolbar only instantiates 20 chips.
+    Rectangle {
+        anchors.fill: parent
+        visible: view.selectionListOpen && ui.selCount > 0
+        z: 30
+        color: Qt.rgba(ui.surface.r, ui.surface.g, ui.surface.b, 0.95)
+        MouseArea { anchors.fill: parent }
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: Math.min(parent.width - ui.px(40), ui.px(480))
+            height: Math.min(parent.height - ui.px(60), ui.px(500))
+            color: ui.surface
+            border.width: 1
+            border.color: ui.tint(0.2)
+            radius: ui.r(2)
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: ui.px(16)
+                spacing: ui.px(8)
+                RowLayout {
+                    Layout.fillWidth: true
+                    Txt { ui: view.ui; Layout.fillWidth: true; text: ui.selCount + " selected" }
+                    Btn { ui: view.ui; text: "Close"; onClicked: view.selectionListOpen = false }
+                }
+                ListView {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    clip: true
+                    model: ui.selectedPlugins
+                    spacing: ui.px(4)
+                    delegate: Rectangle {
+                        width: ListView.view ? ListView.view.width : 0
+                        height: ui.px(28)
+                        radius: ui.r(1.5)
+                        color: selectedRow.containsMouse ? ui.accentTint(0.2) : ui.tint(0.07)
+                        Txt {
+                            ui: view.ui
+                            anchors.fill: parent
+                            anchors.leftMargin: ui.px(8)
+                            anchors.rightMargin: ui.px(8)
+                            verticalAlignment: Text.AlignVCenter
+                            elide: Text.ElideRight
+                            text: modelData.name + "  ×"
+                        }
+                        MouseArea {
+                            id: selectedRow
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: ui.unselect(modelData.id)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // ---- confirmation dialog ----
     Rectangle {
         anchors.fill: parent
@@ -706,11 +799,14 @@ Item {
                 readonly property var list: (ui.confirm && ui.confirm.list) ? ui.confirm.list : null
                 readonly property int n: list ? list.length : (plug ? 1 : 0)
                 readonly property bool choosingAll: kind === "selectAll"
+                readonly property bool batchLimited: kind === "batchLimit"
                 readonly property bool choosingPlacement: ui.confirm && ui.confirm.placement === true
                 readonly property string tabLabel: ui.confirm && ui.confirm.tab
                     ? ui.confirm.tab.charAt(0).toUpperCase() + ui.confirm.tab.slice(1) : ""
-                readonly property string verb: choosingAll ? "Select all"
+                readonly property string verb: batchLimited ? "Run first " + dlg.list.length
+                    : (choosingAll ? "Select all"
                     : (kind === "remove" ? "Remove" : (kind === "update" ? "Update" : "Install"))
+                    )
 
                 Txt {
                     ui: view.ui
@@ -718,7 +814,8 @@ Item {
                     wrapMode: Text.Wrap
                     font.pixelSize: ui.fs(15)
                     font.weight: Font.DemiBold
-                    text: dlg.choosingAll ? "Select all " + dlg.n + " plugins in " + dlg.tabLabel + "?"
+                    text: dlg.batchLimited ? "Run first " + dlg.n + " of " + ui.confirm.count + " selected plugins?"
+                        : dlg.choosingAll ? "Select all " + dlg.n + " plugins in " + dlg.tabLabel + "?"
                         : (dlg.plug ? (dlg.n > 1 ? dlg.verb + " " + dlg.n + " plugins?"
                                                     : dlg.verb + " " + dlg.plug.name + "?") : "")
                 }
@@ -731,6 +828,8 @@ Item {
                         if (dlg.choosingAll)
                             return "This replaces your current selection with all " + dlg.n
                                 + " eligible plugins shown in this tab. No plugins will be installed, updated or removed until you choose an action."
+                        if (dlg.batchLimited)
+                            return "Only the first " + ui.batchLimit + " will be queued. The rest remain selected. Stop after current cancels waiting jobs, not the one already running."
                         if (!dlg.plug) return ""
                         if (dlg.kind === "remove") return dlg.n > 1 ? "Those plugin folders are deleted from your plugins directory."
                                                                     : "The plugin folder is deleted from your plugins directory."
@@ -794,6 +893,7 @@ Item {
                             ui.confirm = null
                             if (!c) return
                             if (c.kind === "selectAll") ui.confirmSelectAll(c)
+                            else if (c.kind === "batchLimit") ui.runBatch(c.action, c.list)
                             else if (c.list) ui.runBatch(c.kind, c.list)
                             else ui.runAction(c.kind, c.p, c.placement ? c.section : undefined)
                         }

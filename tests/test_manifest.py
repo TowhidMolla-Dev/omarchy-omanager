@@ -84,6 +84,23 @@ class ManifestTests(unittest.TestCase):
         self.assertIn("Model.installPlacementArgs(id, section)", service)
         self.assertIn("if (ok && c.placementArgs)", service)
 
+    def test_large_selection_and_preview_updates_are_bounded(self):
+        widget = self.m["entryPoints"]["barWidget"]
+        base = os.path.dirname(widget)
+        view = read(os.path.join(base, "panel", "ManagerView.qml"))
+        state = read(os.path.join(base, "core", "UiState.qml"))
+        service = read(os.path.join(base, "Service.qml"))
+        self.assertIn("model: ui.selectedPlugins.slice(0, 20)", view)
+        self.assertIn("model: ui.selectedPlugins", view)  # virtual ListView of the full set
+        self.assertIn("Layout.preferredHeight: Math.min(selectedChips.implicitHeight, ui.px(82))", view)
+        self.assertIn("if (list.length > batchLimit)", state)
+        self.assertIn("function cancelQueued()", service)
+        self.assertIn("if (queue.length === 0) refreshInstalled()", service)
+        self.assertIn("root.notifyImages()", service)
+        self.assertIn("ImageNotifier { id: imageNotify }", service)
+        self.assertIn("readonly property int imageTick: imageNotify.tick", service)
+        self.assertIn("Model.normalizeCatalogStep(task.normalizer, 160, 8)", service)
+
     def test_settings_drift(self):
         qml = read("qml/BarWidget.qml")
         used = set(re.findall(r'setting\("([A-Za-z0-9_]+)"', qml))
