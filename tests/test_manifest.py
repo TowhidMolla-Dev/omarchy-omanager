@@ -70,6 +70,18 @@ class ManifestTests(unittest.TestCase):
         self.assertIn('if (c.kind === "selectAll") ui.confirmSelectAll(c)', view)
         self.assertIn("selectAllVisible(visible)", state)
 
+    def test_large_batch_is_bounded(self):
+        base = os.path.dirname(self.m["entryPoints"]["barWidget"])
+        view = read(os.path.join(base, "panel", "ManagerView.qml"))
+        state = read(os.path.join(base, "core", "UiState.qml"))
+        service = read(os.path.join(base, "Service.qml"))
+        self.assertIn("model: ui.selectedPlugins.slice(0, 20)", view)
+        self.assertIn("model: ui.selectedPlugins", view)
+        self.assertIn("Layout.preferredHeight: Math.min(selectedChips.implicitHeight, ui.px(82))", view)
+        self.assertIn("if (list.length > batchLimit)", state)
+        self.assertIn("function cancelQueued()", service)
+        self.assertIn("if (queue.length === 0) refreshInstalled()", service)
+
     def test_settings_drift(self):
         qml = read("qml/BarWidget.qml")
         used = set(re.findall(r'setting\("([A-Za-z0-9_]+)"', qml))
